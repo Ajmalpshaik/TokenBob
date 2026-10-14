@@ -31,7 +31,8 @@ useful at a glance.
 - No macOS or Linux.
 - No installer, Microsoft Store package, or auto-update. v1 ships as a single
   `TokenBob.exe`.
-- No refreshing of the Claude OAuth token. TokenBob only reads it (see §7.3).
+- TokenBob never reads Claude Desktop's or Claude Code's stored logins. It has
+  its own one-time sign-in (see §7).
 - No style C (spark charm) and no thin-thread rope.
 
 ## 4. User-facing behavior
@@ -104,7 +105,7 @@ fades back in when the fullscreen app ends. Can be turned off in Settings.
 ### 4.7 Tray icon
 
 A small tray icon with a right-click menu: **Settings**, **Hide / Show widget**,
-**Refresh now**, **Quit**. The tray icon tooltip shows "5h 42% · Week 18%".
+**Refresh now**, **Sign in… / Sign out**, **Quit**. The tray icon tooltip shows "5h 42% · Week 18%".
 
 ### 4.8 Settings window
 
@@ -118,6 +119,7 @@ to the widget and save automatically.
 | Data | Refresh interval (1, 2, 5, 10, 15 min; default 5), Refresh now button, last update time and status |
 | Alerts | Windows notifications on/off |
 | Behavior | Start with Windows on/off, auto-hide in fullscreen on/off |
+| Account | Signed-in status, Sign in / Sign out |
 | About | Version, link to GitHub repo, Quit |
 
 ### 4.9 Error and empty states
@@ -127,10 +129,9 @@ hover card explains it:
 
 | Condition | Ornament | Hover text |
 |---|---|---|
-| Credentials file missing | "?" | "Sign in to Claude Code to see usage" |
-| Token expired (`expiresAt` in the past) or HTTP 401 | "!" | "Login expired — open Claude to refresh" |
-| Network error / timeout | Last numbers, greyed | "Offline — updated N min ago" |
-| Unexpected response shape / HTTP 5xx | Last numbers greyed, or "?" if none | "Can't read usage right now" (details in log) |
+| Not signed in, or claude.ai session ended (HTTP 401, or 403 with a JSON body) | "?" | "Sign in to Claude to see usage" |
+| Network error / timeout / HTTP 429 | Last numbers, greyed | "Offline — updated N min ago" |
+| Unexpected response shape, non-JSON (HTML) response, or HTTP 5xx | Last numbers greyed, or "?" if none | "Can't read usage right now" (details in log) |
 | First fetch in progress | Gentle pulse | "Loading usage…" |
 
 ## 5. Technology
@@ -143,6 +144,8 @@ hover card explains it:
   support for unpackaged apps). Verified during implementation; if it cannot
   show notifications reliably, fall back to `CommunityToolkit.WinUI.Notifications`
   (`ToastNotificationManagerCompat`).
+- Sign-in and usage requests: **Microsoft.Web.WebView2** (the Edge engine built
+  into Windows 11), with its own profile folder `%AppData%\TokenBob\WebView2`.
 - Tests: **xUnit**.
 - Publish: self-contained single-file `win-x64` exe.
 
@@ -167,6 +170,8 @@ is unit-tested; **App** renders and handles input.
 │  │  │  ├─ HoverCard.xaml              details card
 │  │  │  └─ FullscreenWatcher.cs        auto-hide detection
 │  │  ├─ Settings\SettingsWindow.xaml(.cs)
+│  │  ├─ Account\SignInWindow.xaml(.cs)   one-time claude.ai sign-in (WebView2)
+│  │  ├─ Account\WebView2Fetcher.cs       hidden WebView2 that runs usage requests
 │  │  ├─ Tray\TrayIconHost.cs
 │  │  ├─ Input\GestureController.cs   maps mouse + modifier keys to gestures
 │  │  ├─ Platform\                    Win32 interop: monitors, startup registry, browser
@@ -176,8 +181,9 @@ is unit-tested; **App** renders and handles input.
 │     ├─ Physics\Vec2.cs
 │     ├─ Usage\IUsageProvider.cs
 │     ├─ Usage\UsageSnapshot.cs
-│     ├─ Usage\ClaudeOAuthUsageProvider.cs
-│     ├─ Usage\CredentialsReader.cs
+│     ├─ Usage\IWebFetcher.cs
+│     ├─ Usage\ClaudeWebUsageProvider.cs
+│     ├─ Usage\SignInNavigationPolicy.cs  allowed sign-in hosts
 │     ├─ Usage\UsagePoller.cs           timer, cooldown, state machine
 │     ├─ Alerts\AlertRules.cs           color level, thresholds, shiver, reset detection
 │     ├─ Screens\Placement.cs           anchor clamp, monitor choice, fallback
@@ -223,11 +229,13 @@ Task<UsageResult> FetchAsync(CancellationToken ct);
 ```
 `UsageResult` is either a `UsageSnapshot` (FiveHour, Weekly — each with
 `Utilization` 0–100 and `ResetsAt`; plus `FetchedAt`) or a typed error
-(`NotSignedIn`, `LoginExpired`, `Offline`, `Unreadable`).
+(`NotSignedIn`, `Offline`, `RateLimited`, `Unreadable`).
 
-**`ClaudeOAuthUsageProvider`** — the only class that knows the endpoint. It uses
-`CredentialsReader` for the token and an injected `HttpClient` (so tests use a
-fake handler).
+**`ClaudeWebUsageProvider`** — the only class that knows the claude.ai endpoints
+and response shapes. It makes requests through an injected `IWebFetcher`
+(`Task<WebResponse> GetAsync(string path, CancellationToken ct)`), so tests use a
+fake fetcher. The App's `WebView2Fetcher` implements it with a hidden WebView2
+that shares the sign-in profile.
 
 **`UsagePoller`** — runs the refresh timer (interval from settings), exposes
 `RefreshNow()` with a 30 s cooldown, keeps the last good snapshot, and raises
@@ -259,7 +267,7 @@ gesture commands (`DragStart/Move/End`, `OpenSettings`, `EditStart/Move/End`,
 ### 6.3 Data flow
 
 ```
-UsagePoller ──(timer / RefreshNow)──► ClaudeOAuthUsageProvider ──► UsageResult
+UsagePoller ──(timer / RefreshNow)──► ClaudeWebUsageProvider ─(IWebFetcher)─► UsageResult
      │
      └─ Updated(UsageState) ─► AlertRules ─► notifications (TrayIconHost)
                                     │       shiver / bounce impulses (RopeSim)
@@ -272,40 +280,56 @@ RopeSim ─► WidgetWindow render loop (positions, angle, stretch)
 
 ## 7. Usage data source
 
-### 7.1 Credentials
+> **Changed 2026-10-14.** The first build step found that this PC has no Claude
+> Code login file. The Claude desktop app keeps its login encrypted inside
+> itself, and TokenBob will not try to read it. TokenBob therefore has its own
+> one-time claude.ai sign-in, approved by the user.
 
-Claude Code stores its login at `%USERPROFILE%\.claude\.credentials.json`.
-Expected shape (to be confirmed in the first build step):
+### 7.1 Sign-in
 
-```json
-{ "claudeAiOauth": { "accessToken": "…", "expiresAt": 1760000000000, … } }
+- On first run (and whenever TokenBob is not signed in) it opens a small
+  **Sign-in window** containing a WebView2 browser at `https://claude.ai/login`.
+  The user signs in normally (email code or "Continue with Google").
+- The WebView2 profile lives in `%AppData%\TokenBob\WebView2`, protected by the
+  user's Windows account. It is never uploaded, committed, or logged. TokenBob
+  never sees the password.
+- **Navigation lock:** the Sign-in window only navigates to `https` URLs on
+  `claude.ai`, `anthropic.com` (and their subdomains) and `accounts.google.com`.
+  Anything else is cancelled. Pop-up requests open in the same window under the
+  same rule.
+- Sign-in is complete when `GET /api/organizations` returns 200 with JSON; the
+  window then closes itself and usage refreshes.
+- **Sign out** (tray or Settings) deletes all cookies in the profile.
+
+### 7.2 Endpoints
+
+Requests run inside a hidden WebView2 that shares the sign-in profile, as
+same-origin `fetch` calls from a `https://claude.ai` page, so they behave exactly
+like the claude.ai website.
+
+```
+GET https://claude.ai/api/organizations              → [ { "uuid": "…", "capabilities": ["chat", …] }, … ]
+GET https://claude.ai/api/organizations/{uuid}/usage → { "five_hour": {…}, "seven_day": {…}, … }
 ```
 
-TokenBob reads `accessToken` and `expiresAt` only. It re-reads the file before
-each fetch (Claude Code may have refreshed it). It never writes the file, never
-logs the token, and never sends it anywhere except the endpoint below.
-
-### 7.2 Endpoint
-
-```
-GET https://api.anthropic.com/api/oauth/usage
-Authorization: Bearer <accessToken>
-anthropic-beta: oauth-2025-04-20
-```
-
-Expected response fields (to be confirmed in the first build step):
-`five_hour.utilization`, `five_hour.resets_at`, `seven_day.utilization`,
-`seven_day.resets_at`. Unknown extra fields are ignored. Missing required
-fields → `Unreadable`.
+- Organization choice: the first organization whose `capabilities` contains
+  `"chat"`, else the first one. Cached in memory and re-fetched if a usage call
+  returns 404.
+- Expected usage fields (confirmed against the real response on the first
+  successful sign-in in build step 11): `five_hour.utilization` (0–100),
+  `five_hour.resets_at` (ISO-8601), `seven_day.utilization`,
+  `seven_day.resets_at`. A limit object or `resets_at` may be `null` (no active
+  window) → 0% / no reset time. Unknown extra fields are ignored. Missing
+  `five_hour` or `seven_day` keys → `Unreadable`.
+- Status mapping: 200 + JSON → snapshot; 401, or 403 with a JSON body →
+  `NotSignedIn`; 429 → `RateLimited`; non-JSON body (e.g. an HTML challenge page)
+  or 5xx → `Unreadable`; network failure or timeout → `Offline`.
 
 ### 7.3 Risk and limits
 
-- This is an **unofficial endpoint** that Claude Code itself uses. It may change
-  without notice. All knowledge of it lives in `ClaudeOAuthUsageProvider` and
-  `CredentialsReader`, so a change means editing only those two files.
-- TokenBob does **not** refresh expired tokens. Refreshing would rotate the
-  refresh token and could sign Claude Code out. When the token is expired,
-  TokenBob shows the "Login expired" state until Claude Code refreshes it.
+- These are **unofficial endpoints** used by the claude.ai website. They may
+  change without notice. All knowledge of them lives in `ClaudeWebUsageProvider`,
+  so a change means editing only that file.
 - Requests time out after 10 s. HTTP 429 → back off to double the interval
   (max 30 min) until a success.
 
@@ -322,11 +346,12 @@ fields → `Unreadable`.
 - **AlertRules:** color boundaries at 59.9 / 60 / 85 / 85.1; 79 → no alert,
   80 → one alert, 81 → none; 95 fires once; thresholds re-arm after reset;
   reset detection triggers bounce; shiver at ≥ 90.
-- **Usage provider:** valid JSON → snapshot; missing fields / garbage /
-  HTML error page → `Unreadable`; 401 → `LoginExpired`; timeout → `Offline`;
-  credentials missing → `NotSignedIn`; expired `expiresAt` → `LoginExpired`
-  without a network call. All tests use a fake `HttpMessageHandler` and a fake
-  credentials file — no real network, no real token.
+- **Usage provider:** valid JSON → snapshot; null limit → 0%; missing keys /
+  garbage / HTML page → `Unreadable`; 401 or 403+JSON → `NotSignedIn`; 429 →
+  `RateLimited`; network failure or timeout → `Offline`; organization choice and
+  404 re-fetch. All tests use a fake `IWebFetcher` — no real network, no account.
+- **Sign-in navigation lock:** allowed and blocked URLs (http, look-alike hosts
+  such as `claude.ai.evil.com`).
 - **UsagePoller:** `RefreshNow` cooldown; last good snapshot kept on error;
   429 backoff.
 - **SettingsStore:** round-trip; missing file → defaults; corrupt file → defaults
@@ -340,6 +365,9 @@ fields → `Unreadable`.
 - Hover card, double-click to usage page, wind sway.
 - Clicks pass through empty areas to windows behind.
 - Fullscreen video hides the widget; it returns afterward.
+- First run opens the Sign-in window; after signing in, real numbers match
+  claude.ai's Usage page; Sign out returns to "?"; the Sign-in window refuses
+  to open non-Claude sites.
 - Tray menu items; start with Windows survives a reboot; notifications appear.
 - Idle CPU near 0% when at rest.
 
@@ -358,8 +386,8 @@ fields → `Unreadable`.
 
 ## 10. Build order
 
-1. **Spike:** confirm the credentials file shape and the usage endpoint response
-   on this machine (throwaway; no token printed).
+1. **Spike (done):** found no Claude Code login on this PC → switched to the
+   one-time claude.ai sign-in (§7).
 2. Scaffold solution, projects, repo files; create GitHub repo; first push; CI green.
 3. Core physics (`RopeSim`) with tests.
 4. Widget window + rope renderer + ring ornament, driven by fake data.
