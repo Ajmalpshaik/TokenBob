@@ -42,7 +42,7 @@ public partial class WidgetWindow : Window
         Rope.RopeStyle = settings.Rope;
 
         SourceInitialized += OnSourceInitialized;
-        DpiChanged += (_, _) => Dispatcher.BeginInvoke(ApplyPlacement);
+        DpiChanged += (_, _) => Dispatcher.BeginInvoke(() => DisplayChanged?.Invoke());
 
         _hoverTimer = new DispatcherTimer(HoverDelay, DispatcherPriority.Normal, OnHoverTimer, Dispatcher) { IsEnabled = false };
         Host.MouseEnter += (_, _) => _hoverTimer.Start();
@@ -69,6 +69,9 @@ public partial class WidgetWindow : Window
 
     /// <summary>Where the middle of the ornament is, in window coordinates (for wind).</summary>
     internal Vec2 OrnamentCenter => _sim.OrnamentPosition + new Vec2(0, Ornament.CenterOffset);
+
+    /// <summary>Raised when the window's DPI changes; the owner re-reads the monitors and moves it.</summary>
+    public event Action? DisplayChanged;
 
     /// <summary>Raised after the ornament style is swapped, so its numbers can be filled in again.</summary>
     public event Action? OrnamentReplaced;

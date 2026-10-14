@@ -1,3 +1,5 @@
+using TokenBob.Core.Logging;
+
 namespace TokenBob.Core.Usage;
 
 public sealed record UsageState(UsageSnapshot? LastGood, UsageError? Status, bool IsLoading);
@@ -12,22 +14,31 @@ public sealed class UsagePoller : IDisposable
     public static readonly TimeSpan ManualCooldown = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan MaxBackoff = TimeSpan.FromMinutes(30);
 
+    /// <summary>After going offline (e.g. waking from sleep before Wi-Fi is back), retry soon: 15 s, 30 s, 60 s…</summary>
+    public static readonly TimeSpan FirstOfflineRetry = TimeSpan.FromSeconds(15);
+
+    private static readonly TimeSpan OverdueGrace = TimeSpan.FromMinutes(1);
+
     private readonly IUsageProvider _provider;
     private readonly TimeProvider _time;
+    private readonly ILog _log;
     private readonly CancellationTokenSource _stop = new();
     private readonly object _gate = new();
     private TaskCompletionSource _wake = NewSignal();
     private TimeSpan _interval;
     private TimeSpan _currentDelay;
     private bool _backingOff;
+    private int _offlineStreak;
+    private bool _forcePending;
     private DateTimeOffset? _lastManualRefresh;
     private int _waitsStarted;
     private bool _started;
 
-    public UsagePoller(IUsageProvider provider, TimeProvider time, TimeSpan interval)
+    public UsagePoller(IUsageProvider provider, TimeProvider time, TimeSpan interval, ILog? log = null)
     {
         _provider = provider;
         _time = time;
+        _log = log ?? NullLog.Instance;
         _interval = interval;
         _currentDelay = interval;
         State = new UsageState(null, null, false);
@@ -37,13 +48,16 @@ public sealed class UsagePoller : IDisposable
 
     public UsageState State { get; private set; }
 
+    /// <summary>When the latest fetch started (to spot a timer that missed its slot, e.g. in sleep).</summary>
+    public DateTimeOffset? LastAttemptAt { get; private set; }
+
     public TimeSpan Interval
     {
         get => _interval;
         set
         {
             _interval = value;
-            if (!_backingOff) _currentDelay = value;
+            if (!_backingOff && _offlineStreak == 0) _currentDelay = value;
         }
     }
 
@@ -53,16 +67,22 @@ public sealed class UsagePoller : IDisposable
     /// <summary>Number of timer waits begun so far (lets tests advance fake time safely).</summary>
     internal int WaitsStarted => Volatile.Read(ref _waitsStarted);
 
+    /// <summary>True when the next fetch is more than a minute late (its timer didn't fire).</summary>
+    public static bool IsOverdue(DateTimeOffset? lastAttempt, TimeSpan delay, DateTimeOffset now) =>
+        lastAttempt is { } last && now - last > delay + OverdueGrace;
+
     public void Start()
     {
         if (_started) return;
         _started = true;
-        _ = LoopAsync();
+        LoopAsync().ContinueWith(t => _log.Error("Usage polling stopped", t.Exception),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
     }
 
     /// <summary>
     /// Fetch now. Returns false, without fetching, within 30 s of the previous call —
-    /// unless <paramref name="ignoreCooldown"/> is set (after signing in or out).
+    /// unless <paramref name="ignoreCooldown"/> is set (after signing in or out, or waking up).
+    /// A forced refresh that arrives during a fetch causes another fetch right after it.
     /// </summary>
     public bool RefreshNow(bool ignoreCooldown = false)
     {
@@ -71,6 +91,7 @@ public sealed class UsagePoller : IDisposable
         {
             if (!ignoreCooldown && _lastManualRefresh is { } last && now - last < ManualCooldown) return false;
             _lastManualRefresh = now;
+            if (ignoreCooldown) _forcePending = true;
             _wake.TrySetResult();
         }
         return true;
@@ -89,13 +110,17 @@ public sealed class UsagePoller : IDisposable
             await FetchOnceAsync();
 
             TaskCompletionSource signal;
+            bool fetchAgain;
             lock (_gate)
             {
-                // A refresh requested while that fetch was running is satisfied by it.
+                // A plain refresh asked for during that fetch is satisfied by it; a forced one
+                // (sign-in or sign-out finished meanwhile) needs a fresh fetch.
+                fetchAgain = _wake.Task.IsCompleted && _forcePending;
                 if (_wake.Task.IsCompleted) _wake = NewSignal();
+                _forcePending = false;
                 signal = _wake;
             }
-            if (await WaitAsync(signal)) continue;
+            if (fetchAgain || await WaitAsync(signal)) continue;
             if (_stop.IsCancellationRequested) return;
         }
     }
@@ -114,6 +139,7 @@ public sealed class UsagePoller : IDisposable
             lock (_gate)
             {
                 if (ReferenceEquals(_wake, signal)) _wake = NewSignal();
+                _forcePending = false;
             }
             return true;
         }
@@ -122,6 +148,7 @@ public sealed class UsagePoller : IDisposable
 
     private async Task FetchOnceAsync()
     {
+        LastAttemptAt = _time.GetUtcNow();
         Publish(State with { IsLoading = true });
 
         UsageResult result;
@@ -133,32 +160,54 @@ public sealed class UsagePoller : IDisposable
         {
             return;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _log.Error("Usage fetch failed unexpectedly", ex);
             result = UsageResult.Fail(UsageError.Unreadable);
         }
 
-        if (result.Error == UsageError.RateLimited)
-        {
-            _backingOff = true;
-            var doubled = _currentDelay * 2;
-            _currentDelay = doubled > MaxBackoff ? MaxBackoff : doubled;
-        }
-        else
-        {
-            _backingOff = false;
-            _currentDelay = _interval;
-        }
-
+        ScheduleNext(result.Error);
         Publish(result.Snapshot is { } snapshot
             ? new UsageState(snapshot, null, false)
             : new UsageState(State.LastGood, result.Error, false));
     }
 
+    private void ScheduleNext(UsageError? error)
+    {
+        switch (error)
+        {
+            case UsageError.RateLimited:
+                _backingOff = true;
+                _offlineStreak = 0;
+                var doubled = _currentDelay * 2;
+                _currentDelay = doubled > MaxBackoff ? MaxBackoff : doubled;
+                break;
+            case UsageError.Offline:
+                _backingOff = false;
+                _offlineStreak++;
+                var retry = FirstOfflineRetry * Math.Pow(2, Math.Min(_offlineStreak - 1, 10));
+                _currentDelay = retry < _interval ? retry : _interval;
+                break;
+            default:
+                _backingOff = false;
+                _offlineStreak = 0;
+                _currentDelay = _interval;
+                break;
+        }
+    }
+
     private void Publish(UsageState state)
     {
         State = state;
-        Updated?.Invoke(state);
+        try
+        {
+            Updated?.Invoke(state);
+        }
+        catch (Exception ex)
+        {
+            // A failing listener (say, a locked file while saving) must never stop the polling.
+            _log.Error("A usage update handler failed", ex);
+        }
     }
 
     private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);

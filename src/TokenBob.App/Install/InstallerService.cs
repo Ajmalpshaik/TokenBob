@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using Microsoft.Win32;
 using TokenBob.App.Platform;
 using TokenBob.Core;
@@ -39,7 +40,8 @@ internal static class InstallerService
         Process.Start(new ProcessStartInfo(paths.Exe) { UseShellExecute = true, WorkingDirectory = paths.Dir });
     }
 
-    public static void Uninstall(bool removeData)
+    /// <summary>Removes startup entries and the shortcut; the Installed-apps entry goes last.</summary>
+    public static void Uninstall()
     {
         var paths = Paths;
         QuitRunningCopies();
@@ -47,14 +49,29 @@ internal static class InstallerService
         StartupRegistration.Set(false);
         TryDelete(paths.StartMenuShortcut);
         Registry.CurrentUser.DeleteSubKeyTree(InstallPaths.UninstallKey, throwOnMissingSubKey: false);
+    }
 
-        // This exe is running from the install folder, so a short-lived helper removes it after we exit.
-        var folders = removeData ? $"\"{paths.Dir}\" \"{AppPaths.Root}\"" : $"\"{paths.Dir}\"";
-        Process.Start(new ProcessStartInfo("cmd.exe", $"/c ping 127.0.0.1 -n 4 > nul & rmdir /s /q {folders}")
+    /// <summary>
+    /// This exe runs from the install folder, so a hidden helper waits for this process to exit
+    /// and then deletes the folder (and, if asked, settings and sign-in), retrying while
+    /// WebView2 helpers let go of their files.
+    /// </summary>
+    public static void RemoveFilesAfterExit(bool removeData)
+    {
+        var folders = removeData ? new[] { Paths.Dir, AppPaths.Root } : new[] { Paths.Dir };
+        var list = string.Join(",", folders.Select(f => "'" + f.Replace("'", "''") + "'"));
+        var script =
+            $"Wait-Process -Id {Environment.ProcessId} -ErrorAction SilentlyContinue; " +
+            $"foreach ($i in 1..20) {{ $left = @({list}) | Where-Object {{ Test-Path -LiteralPath $_ }}; " +
+            "if (-not $left) { break }; " +
+            "$left | ForEach-Object { Remove-Item -LiteralPath $_ -Recurse -Force -ErrorAction SilentlyContinue }; " +
+            "Start-Sleep -Seconds 1 }";
+        Process.Start(new ProcessStartInfo("powershell.exe",
+            "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(script)))
         {
             CreateNoWindow = true,
             UseShellExecute = false,
-            WindowStyle = ProcessWindowStyle.Hidden,
+            WorkingDirectory = Path.GetTempPath(),   // never hold the folder being deleted
         });
     }
 
@@ -75,8 +92,15 @@ internal static class InstallerService
         {
             using (other)
             {
-                if (!other.WaitForExit(5000)) other.Kill();
-                other.WaitForExit(2000);
+                try
+                {
+                    if (!other.WaitForExit(5000)) other.Kill();
+                    other.WaitForExit(2000);
+                }
+                catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+                {
+                    // Another user's copy, or it already exited.
+                }
             }
         }
     }

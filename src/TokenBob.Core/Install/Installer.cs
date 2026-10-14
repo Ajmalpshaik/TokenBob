@@ -29,4 +29,11 @@ public static class Installer
             return LaunchMode.Run;
         return installedExists ? LaunchMode.Update : LaunchMode.Install;
     }
+
+    /// <summary>
+    /// Whether this copy may keep the "start with Windows" entry pointing at itself. Only the
+    /// installed copy does, so a developer or test run never takes it over.
+    /// </summary>
+    public static bool OwnsStartupEntry(string exePath, InstallPaths paths) =>
+        string.Equals(Path.GetFullPath(exePath), Path.GetFullPath(paths.Exe), StringComparison.OrdinalIgnoreCase);
 }

@@ -17,6 +17,7 @@ public partial class InstallWindow : Window
         var version = InstallerService.Version;
         Title = Heading.Text = mode == LaunchMode.Update ? $"Update TokenBob to {version}" : $"Install TokenBob {version}";
         InstallButton.Content = mode == LaunchMode.Update ? "Update" : "Install";
+        if (mode == LaunchMode.Update) StartWithWindows.IsChecked = Platform.StartupRegistration.IsEnabled();
 
         Cancel.Click += (_, _) => Close();
         InstallButton.Click += async (_, _) => await InstallAsync();

@@ -34,7 +34,10 @@ public static class Placement
         if (monitors.Count == 0) throw new ArgumentException("At least one monitor is required.", nameof(monitors));
 
         var rope = Math.Clamp(ropeLength, MinRope, MaxRope);
-        var match = saved is null ? null : monitors.FirstOrDefault(m => IdOf(m) == saved);
+        // Same monitor even if its resolution or scale changed since the position was saved.
+        var match = saved is null
+            ? null
+            : monitors.FirstOrDefault(m => IdOf(m) == saved) ?? monitors.FirstOrDefault(m => m.DeviceName == saved.DeviceName);
         if (match is not null && savedAnchorXDevice is { } x)
             return new PlacementResult(match, ClampAnchor(match, x), rope);
 

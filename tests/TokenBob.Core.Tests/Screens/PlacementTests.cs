@@ -43,6 +43,15 @@ public class PlacementTests
     }
 
     [Fact]
+    public void Resolve_keeps_the_same_monitor_after_its_resolution_or_scale_changes()
+    {
+        var resized = B with { BoundsDevice = new ScreenRect(1920, 0, 2560, 1440), Scale = 1.25 };
+        var p = Placement.Resolve([A, resized], Placement.IdOf(B), 3000, 200);
+        Assert.Equal(resized, p.Monitor);
+        Assert.Equal(3000, p.AnchorXDevice);
+    }
+
+    [Fact]
     public void Resolve_clamps_saved_anchor_inside_margins()
     {
         Assert.Equal(4740, Placement.Resolve(Both, Placement.IdOf(B), 4795, 150).AnchorXDevice);

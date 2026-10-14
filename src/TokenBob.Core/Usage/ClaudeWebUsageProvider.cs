@@ -28,6 +28,9 @@ public sealed class ClaudeWebUsageProvider : IUsageProvider
 
     public static string UsagePath(string organizationId) => $"/api/organizations/{organizationId}/usage";
 
+    /// <summary>Looks the organization up again on the next fetch (after signing in or out).</summary>
+    public void ForgetOrganization() => _organizationId = null;
+
     public async Task<UsageResult> FetchAsync(CancellationToken ct)
     {
         using var timeout = new CancellationTokenSource(Timeout, _time);
@@ -50,7 +53,12 @@ public sealed class ClaudeWebUsageProvider : IUsageProvider
             }
 
             using var document = ParseJson(response.Body);
-            if (Classify("usage", response.Status, document) is { } usageError) return UsageResult.Fail(usageError);
+            if (Classify("usage", response.Status, document) is { } usageError)
+            {
+                // Signed out, or now a different account: find the organization again next time.
+                if (usageError == UsageError.NotSignedIn) _organizationId = null;
+                return UsageResult.Fail(usageError);
+            }
 
             var snapshot = ReadSnapshot(document!.RootElement);
             if (snapshot is null)
@@ -132,11 +140,13 @@ public sealed class ClaudeWebUsageProvider : IUsageProvider
     private static LimitUsage? ReadLimit(JsonElement limit)
     {
         if (limit.ValueKind == JsonValueKind.Null) return new LimitUsage(0, null);
-        if (limit.ValueKind != JsonValueKind.Object
-            || !limit.TryGetProperty("utilization", out var utilization)
-            || utilization.ValueKind != JsonValueKind.Number)
+        if (limit.ValueKind != JsonValueKind.Object || !limit.TryGetProperty("utilization", out var utilization)) return null;
+        double used;
+        switch (utilization.ValueKind)
         {
-            return null;
+            case JsonValueKind.Number: used = utilization.GetDouble(); break;
+            case JsonValueKind.Null: used = 0; break;   // no activity in this window yet
+            default: return null;
         }
 
         DateTimeOffset? resetsAt = null;
@@ -150,7 +160,7 @@ public sealed class ClaudeWebUsageProvider : IUsageProvider
             resetsAt = parsed;
         }
 
-        return new LimitUsage(utilization.GetDouble(), resetsAt);
+        return new LimitUsage(used, resetsAt);
     }
 
     private static bool HasChatCapability(JsonElement organization) =>

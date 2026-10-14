@@ -43,8 +43,10 @@ public static class AlertRules
 
         if (current.FiveHour.Utilization >= ShiverAt) events.Add(new Shiver());
 
-        if (previous is not null
-            && current.FiveHour.ResetsAt > previous.FiveHour.ResetsAt
+        // The window reset: there was a reset time, and now there's a later one or none at all
+        // (an idle window reports no reset time), and usage went down.
+        if (previous?.FiveHour.ResetsAt is { } before
+            && (current.FiveHour.ResetsAt is not { } after || after > before)
             && current.FiveHour.Utilization < previous.FiveHour.Utilization)
         {
             events.Add(new ResetBounce());

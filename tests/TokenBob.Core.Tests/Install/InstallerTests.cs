@@ -60,3 +60,16 @@ public class InstallerTests
         Assert.Equal(LaunchMode.Run, Decide(Downloads, installed: false, singleFile: true, option, "x.png"));
     }
 }
+
+public class StartupOwnershipTests
+{
+    private static readonly InstallPaths Paths = InstallPaths.For(@"C:\Users\pat\AppData\Local", @"C:\Users\pat\AppData\Roaming");
+
+    [Fact]
+    public void Only_the_installed_copy_maintains_the_startup_entry()
+    {
+        Assert.True(Installer.OwnsStartupEntry(@"c:\users\pat\appdata\local\programs\tokenbob\tokenbob.exe", Paths));
+        Assert.False(Installer.OwnsStartupEntry(@"D:\dev\TokenBob\bin\Debug\TokenBob.exe", Paths));
+        Assert.False(Installer.OwnsStartupEntry(@"C:\Users\pat\Downloads\TokenBob.exe", Paths));
+    }
+}

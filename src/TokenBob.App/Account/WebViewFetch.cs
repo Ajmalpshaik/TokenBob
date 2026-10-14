@@ -8,10 +8,19 @@ namespace TokenBob.App.Account;
 /// <summary>Runs a same-origin fetch inside a WebView2 page and returns status + body.</summary>
 internal static class WebViewFetch
 {
+    public const string Origin = "https://claude.ai";
+
     public static async Task<WebResponse> GetAsync(CoreWebView2 core, string path, CancellationToken ct)
     {
+        // Never send a request (it carries the organization id) from any page but claude.ai.
+        if (!Uri.TryCreate(core.Source, UriKind.Absolute, out var page) || page.Scheme != Uri.UriSchemeHttps
+            || !string.Equals(page.Host, "claude.ai", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new HttpRequestException("The helper page is not on claude.ai.");
+        }
+
         var expression =
-            $"fetch({JsonSerializer.Serialize(path)}, {{ credentials: 'include', headers: {{ accept: 'application/json' }} }})" +
+            $"fetch({JsonSerializer.Serialize(Origin + path)}, {{ credentials: 'include', headers: {{ accept: 'application/json' }} }})" +
             ".then(async r => JSON.stringify({ status: r.status, body: await r.text() }))";
         var parameters = JsonSerializer.Serialize(new { expression, awaitPromise = true, returnByValue = true });
 

@@ -17,12 +17,13 @@ namespace TokenBob.App.Account;
 /// </summary>
 internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
 {
-    private const string OriginUrl = "https://claude.ai/api/organizations";
+    private const string OriginUrl = WebViewFetch.Origin + "/api/organizations";
     private static readonly TimeSpan IdleShutdown = TimeSpan.FromSeconds(10);
 
     private readonly DispatcherTimer _idle;
     private Window? _host;
     private WebView2? _view;
+    private Task<CoreWebView2>? _starting;
     private bool _originReady;
 
     public WebView2Fetcher()
@@ -41,7 +42,15 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
         _idle.Stop();
         try
         {
-            return await GetCoreAsync(path, ct);
+            var core = await EnsureOriginAsync(ct);
+            var response = await WebViewFetch.GetAsync(core, path, ct);
+            if (!WebViewFetch.LooksLikeJson(response.Body)) _originReady = false;   // e.g. a challenge page: reload next time
+#if DEBUG
+            // Developer builds only: keep the last usage reply on this PC to check the response shape.
+            if (path.EndsWith("/usage", StringComparison.Ordinal))
+                System.IO.File.WriteAllText(System.IO.Path.Combine(Core.Config.AppPaths.Root, "debug-usage.json"), response.Body);
+#endif
+            return response;
         }
         finally
         {
@@ -49,26 +58,20 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
         }
     }
 
-    private async Task<WebResponse> GetCoreAsync(string path, CancellationToken ct)
-    {
-        var core = await EnsureOriginAsync(ct);
-        var response = await WebViewFetch.GetAsync(core, path, ct);
-        if (!WebViewFetch.LooksLikeJson(response.Body)) _originReady = false;   // e.g. a challenge page: reload next time
-#if DEBUG
-        // Developer builds only: keep the last usage reply on this PC to check the response shape.
-        if (path.EndsWith("/usage", StringComparison.Ordinal))
-            System.IO.File.WriteAllText(System.IO.Path.Combine(Core.Config.AppPaths.Root, "debug-usage.json"), response.Body);
-#endif
-        return response;
-    }
-
     /// <summary>Signs out of claude.ai in TokenBob's profile only. Claude Desktop is not affected.</summary>
     public async Task SignOutAsync()
     {
-        var core = await EnsureCoreAsync();
-        core.CookieManager.DeleteAllCookies();
-        _originReady = false;
-        _idle.Start();
+        _idle.Stop();
+        try
+        {
+            var core = await EnsureCoreAsync(CancellationToken.None);
+            core.CookieManager.DeleteAllCookies();
+            _originReady = false;
+        }
+        finally
+        {
+            _idle.Start();
+        }
     }
 
     public void Dispose() => Release();
@@ -76,18 +79,19 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
     private void Release()
     {
         _idle.Stop();
-        if (_view is null) return;
-        _view.Dispose();
+        if (_view is null && _host is null) return;
+        _view?.Dispose();
         _host?.Close();
         _view = null;
         _host = null;
+        _starting = null;
         _originReady = false;
         Released?.Invoke();
     }
 
     private async Task<CoreWebView2> EnsureOriginAsync(CancellationToken ct)
     {
-        var core = await EnsureCoreAsync();
+        var core = await EnsureCoreAsync(ct);
         if (_originReady) return core;
 
         var done = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -107,32 +111,47 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
         return core;
     }
 
-    private async Task<CoreWebView2> EnsureCoreAsync()
+    /// <summary>Starts the browser engine once, even if two requests ask at the same time.</summary>
+    private Task<CoreWebView2> EnsureCoreAsync(CancellationToken ct)
     {
-        if (_view?.CoreWebView2 is { } ready) return ready;
+        if (_view?.CoreWebView2 is { } ready) return Task.FromResult(ready);
+        _starting ??= StartCoreAsync();
+        return _starting.WaitAsync(ct);
+    }
 
-        _view = new WebView2();
-        _host = new Window
+    private async Task<CoreWebView2> StartCoreAsync()
+    {
+        try
         {
-            Width = 1,
-            Height = 1,
-            Left = -32000,
-            Top = -32000,
-            WindowStyle = WindowStyle.None,
-            ShowInTaskbar = false,
-            ShowActivated = false,
-            Content = _view,
-            Title = "TokenBob helper",
-        };
-        _host.SourceInitialized += (_, _) =>
-        {
-            var hwnd = new WindowInteropHelper(_host).Handle;
-            var style = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-            SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(style | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE));
-        };
-        _host.Show();
+            _view = new WebView2();
+            _host = new Window
+            {
+                Width = 1,
+                Height = 1,
+                Left = -32000,
+                Top = -32000,
+                WindowStyle = WindowStyle.None,
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                Content = _view,
+                Title = "TokenBob helper",
+            };
+            _host.SourceInitialized += (s, _) =>
+            {
+                var hwnd = new WindowInteropHelper((Window)s!).Handle;
+                var style = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+                SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(style | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE));
+            };
+            _host.Show();
 
-        await _view.EnsureCoreWebView2Async(await WebViewEnvironment.GetAsync());
-        return _view.CoreWebView2;
+            await _view.EnsureCoreWebView2Async(await WebViewEnvironment.GetAsync());
+            return _view.CoreWebView2;
+        }
+        catch
+        {
+            // Don't leave a hidden window behind; the next refresh starts over.
+            Release();
+            throw;
+        }
     }
 }

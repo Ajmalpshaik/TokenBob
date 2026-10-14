@@ -68,6 +68,49 @@ public class JsonStoreTests
     }
 
     [Fact]
+    public void Unknown_enum_value_keeps_other_settings()
+    {
+        using var dir = new TempDir();
+        var path = dir.File("settings.json");
+        File.WriteAllText(path, "{\"RopeLength\":222,\"RefreshMinutes\":10,\"Style\":\"Spark\"}");
+
+        var loaded = new JsonStore<WidgetSettings>(path, NullLog.Instance).Load();
+
+        Assert.Equal(222, loaded.RopeLength);
+        Assert.Equal(10, loaded.RefreshMinutes);
+        Assert.Equal(OrnamentStyle.Ring, loaded.Style);
+        Assert.False(File.Exists(path + ".bak"));
+    }
+
+    [Fact]
+    public void Wrong_value_types_keep_other_settings()
+    {
+        using var dir = new TempDir();
+        var path = dir.File("settings.json");
+        File.WriteAllText(path, "{\"RopeLength\":\"222\",\"SwingStrength\":null,\"OrnamentScale\":true,\"RefreshMinutes\":10}");
+
+        var loaded = new JsonStore<WidgetSettings>(path, NullLog.Instance).Load();
+
+        Assert.Equal(222, loaded.RopeLength);
+        Assert.Equal(0.5, loaded.SwingStrength);
+        Assert.Equal(1.0, loaded.OrnamentScale);
+        Assert.Equal(10, loaded.RefreshMinutes);
+    }
+
+    [Fact]
+    public void Locked_file_gives_defaults_without_throwing()
+    {
+        using var dir = new TempDir();
+        var path = dir.File("settings.json");
+        File.WriteAllText(path, "{\"RopeLength\":222}");
+        using var lockHandle = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        var store = new JsonStore<WidgetSettings>(path, NullLog.Instance);
+
+        Assert.Equal(150, store.Load().RopeLength);
+        Assert.False(store.Save(new WidgetSettings()));
+    }
+
+    [Fact]
     public void Load_clamps_out_of_range_values_and_ignores_unknown_fields()
     {
         using var dir = new TempDir();

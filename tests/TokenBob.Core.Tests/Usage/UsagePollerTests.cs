@@ -116,6 +116,83 @@ public class UsagePollerTests
     }
 
     [Fact]
+    public void Throwing_handler_does_not_stop_polling()
+    {
+        var provider = new QueueProvider();
+        using var poller = new UsagePoller(provider, _time, Five);
+        poller.Updated += _ => throw new IOException("alert-state.json is locked");
+
+        poller.Start();
+        WaitForWait(poller, 1);
+        _time.Advance(Five);
+
+        Eventually(() => provider.Calls == 2);
+    }
+
+    private sealed class GatedProvider : IUsageProvider
+    {
+        private TaskCompletionSource<UsageResult> _gate = new();
+        private int _calls;
+        public int Calls => Volatile.Read(ref _calls);
+
+        public Task<UsageResult> FetchAsync(CancellationToken ct)
+        {
+            Interlocked.Increment(ref _calls);
+            return _gate.Task;
+        }
+
+        public void Release(UsageResult result)
+        {
+            var gate = _gate;
+            _gate = new TaskCompletionSource<UsageResult>();
+            gate.SetResult(result);
+        }
+    }
+
+    [Fact]
+    public void Forced_refresh_during_a_fetch_fetches_again()
+    {
+        var provider = new GatedProvider();
+        using var poller = new UsagePoller(provider, _time, Five);
+        poller.Start();
+        Eventually(() => provider.Calls == 1);
+
+        Assert.True(poller.RefreshNow(ignoreCooldown: true));   // e.g. sign-in finished mid-fetch
+        provider.Release(UsageResult.Ok(Snapshot(1)));
+
+        Eventually(() => provider.Calls == 2);
+    }
+
+    [Fact]
+    public void Offline_retries_quickly_then_backs_off_to_interval()
+    {
+        var offline = UsageResult.Fail(UsageError.Offline);
+        var provider = new QueueProvider().Enqueue(offline, offline, offline, offline, offline, UsageResult.Ok(Snapshot(5)));
+        using var poller = new UsagePoller(provider, _time, Five);
+
+        poller.Start();
+        var expectedSeconds = new[] { 15, 30, 60, 120, 240 };
+        for (var i = 0; i < expectedSeconds.Length; i++)
+        {
+            WaitForWait(poller, i + 1);
+            Assert.Equal(TimeSpan.FromSeconds(expectedSeconds[i]), poller.CurrentDelay);
+            _time.Advance(poller.CurrentDelay);
+        }
+
+        WaitForWait(poller, 6);
+        Assert.Equal(Five, poller.CurrentDelay);
+    }
+
+    [Fact]
+    public void Overdue_when_the_timer_missed_its_slot()
+    {
+        var last = new DateTimeOffset(2026, 10, 14, 10, 0, 0, TimeSpan.Zero);
+        Assert.False(UsagePoller.IsOverdue(last, Five, last.AddMinutes(5.5)));
+        Assert.True(UsagePoller.IsOverdue(last, Five, last.AddMinutes(6.5)));
+        Assert.False(UsagePoller.IsOverdue(null, Five, last));
+    }
+
+    [Fact]
     public void Error_keeps_last_good_snapshot()
     {
         var provider = new QueueProvider().Enqueue(UsageResult.Ok(Snapshot(42)), UsageResult.Fail(UsageError.Offline));

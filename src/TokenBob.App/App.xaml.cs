@@ -48,6 +48,7 @@ public partial class App : Application
     private bool _hiddenForFullscreen;
 
     private EventWaitHandle? _quitSignal;
+    private ClaudeWebUsageProvider? _webProvider;
 
     private bool SignedIn => _poller?.State is { LastGood: not null, Status: not UsageError.NotSignedIn };
 
@@ -95,6 +96,21 @@ public partial class App : Application
         _log.Info($"TokenBob {typeof(App).Assembly.GetName().Version} starting");
         ListenForQuit();
 
+        try
+        {
+            StartWidget();
+        }
+        catch (Exception ex)
+        {
+            _log.Error("TokenBob couldn't start", ex);
+            MessageBox.Show("TokenBob couldn't start. Details are in %AppData%\\TokenBob\\logs.", "TokenBob",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown();
+        }
+    }
+
+    private void StartWidget()
+    {
         _alertStore = new JsonStore<AlertMemory>(AppPaths.AlertStateFile, _log);
         if (!_demo) _alertMemory = _alertStore.Load();
 
@@ -113,6 +129,7 @@ public partial class App : Application
 
         var placement = Placement.Resolve(Monitors.GetAll(), _settings.Monitor, _settings.AnchorXDevice, _settings.RopeLength);
         _widget = new WidgetWindow(_settings, placement);
+        _widget.DisplayChanged += OnDisplayChanged;
         _presenter = new UsagePresenter(_widget);
 
         _tray = new TrayIconHost();
@@ -144,14 +161,39 @@ public partial class App : Application
 
         _fetcher = new WebView2Fetcher();
         _fetcher.Released += MemoryTrim.Trim;
-        IUsageProvider provider = _demo ? new DemoUsageProvider() : new ClaudeWebUsageProvider(_fetcher, TimeProvider.System, _log);
-        _poller = new UsagePoller(provider, TimeProvider.System, TimeSpan.FromMinutes(_settings.RefreshMinutes));
+        _webProvider = _demo ? null : new ClaudeWebUsageProvider(_fetcher, TimeProvider.System, _log);
+        IUsageProvider provider = _webProvider ?? (IUsageProvider)new DemoUsageProvider();
+        _poller = new UsagePoller(provider, TimeProvider.System, TimeSpan.FromMinutes(_settings.RefreshMinutes), _log);
         _poller.Updated += OnUsage;
         _poller.Start();
         if (_demo) StartDemo((DemoUsageProvider)provider);
 
-        _minuteTimer = new DispatcherTimer(TimeSpan.FromSeconds(60), DispatcherPriority.Background, (_, _) => Render(), Dispatcher);
+        _minuteTimer = new DispatcherTimer(TimeSpan.FromSeconds(60), DispatcherPriority.Background, (_, _) => OnMinute(), Dispatcher);
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+    }
+
+    private void OnMinute()
+    {
+        Render();
+        // After sleep (or Modern Standby) the refresh timer may not have fired on time.
+        if (_poller is { } poller && UsagePoller.IsOverdue(poller.LastAttemptAt, poller.CurrentDelay, DateTimeOffset.UtcNow))
+        {
+            _log.Info("Refresh was overdue; refreshing now");
+            poller.RefreshNow(ignoreCooldown: true);
+        }
+    }
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(OnDisplayChanged);
+
+    /// <summary>A monitor was plugged in or out, or its resolution or scale changed: re-place the widget.</summary>
+    private void OnDisplayChanged()
+    {
+        if (_widget is null) return;
+        var monitors = Monitors.GetAll();
+        if (monitors.Count == 0) return;
+        var current = _widget.Placement;
+        _widget.MoveTo(Placement.Resolve(monitors, Placement.IdOf(current.Monitor), current.AnchorXDevice, current.RopeLength));
     }
 
     /// <summary>An installer or uninstaller sets this event to close TokenBob cleanly.</summary>
@@ -176,14 +218,25 @@ public partial class App : Application
             "Choose No to keep them in case you install TokenBob again.",
             "Uninstall TokenBob", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
 
-        InstallerService.Uninstall(removeData);
+        try
+        {
+            InstallerService.Uninstall();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("TokenBob couldn't be removed: " + ex.Message, "Uninstall TokenBob",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         MessageBox.Show("TokenBob was removed.", "Uninstall TokenBob", MessageBoxButton.OK, MessageBoxImage.Information);
+        InstallerService.RemoveFilesAfterExit(removeData);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _log.Info("TokenBob exiting");
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         if (_saveTimer?.IsEnabled == true) SaveSettingsNow();
         _minuteTimer?.Stop();
         _poller?.Dispose();
@@ -300,7 +353,7 @@ public partial class App : Application
     {
         try
         {
-            StartupRegistration.Refresh();
+            if (Installer.OwnsStartupEntry(Environment.ProcessPath ?? "", InstallerService.Paths)) StartupRegistration.Refresh();
             _settings.StartWithWindows = StartupRegistration.IsEnabled();
         }
         catch (Exception ex)
@@ -344,6 +397,8 @@ public partial class App : Application
         if (_fetcher is null) return;
         await _fetcher.SignOutAsync();
         _log.Info("Signed out of claude.ai");
+        _signInOfferedThisLaunch = true;   // the user chose this; don't pop the sign-in window back up
+        _webProvider?.ForgetOrganization();
         _poller?.RefreshNow(ignoreCooldown: true);
     }
 
@@ -355,7 +410,11 @@ public partial class App : Application
             return;
         }
         _signIn = new SignInWindow(_log);
-        _signIn.SignedIn += () => _poller?.RefreshNow(ignoreCooldown: true);
+        _signIn.SignedIn += () =>
+        {
+            _webProvider?.ForgetOrganization();   // it may be a different account
+            _poller?.RefreshNow(ignoreCooldown: true);
+        };
         _signIn.Closed += (_, _) => _signIn = null;
         _signIn.Show();
     }

@@ -88,6 +88,14 @@ public class AlertRulesTests
     }
 
     [Fact]
+    public void Window_ending_with_no_new_reset_time_still_bounces()
+    {
+        var idle = new UsageSnapshot(new LimitUsage(0, null), new LimitUsage(10, WeekReset), WindowB);
+        Assert.Contains(new ResetBounce(), AlertRules.Evaluate(Snap(70, WindowA), idle, new AlertMemory()));
+        Assert.DoesNotContain(new ResetBounce(), AlertRules.Evaluate(idle, Snap(5, WindowB), new AlertMemory()));
+    }
+
+    [Fact]
     public void No_bounce_on_first_evaluation()
     {
         Assert.DoesNotContain(new ResetBounce(), AlertRules.Evaluate(null, Snap(5, WindowB), new AlertMemory()));

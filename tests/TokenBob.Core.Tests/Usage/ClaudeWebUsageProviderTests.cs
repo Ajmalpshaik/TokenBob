@@ -139,6 +139,42 @@ public class ClaudeWebUsageProviderTests
     }
 
     [Fact]
+    public async Task Signed_out_usage_forgets_the_organization()
+    {
+        var fetcher = Fetcher(usageStatus: 403, usageBody: "{\"type\":\"error\",\"error\":{\"type\":\"permission_error\"}}");
+        var provider = Provider(fetcher);
+
+        Assert.Equal(UsageError.NotSignedIn, (await provider.FetchAsync(CancellationToken.None)).Error);
+        fetcher.Respond("/api/organizations", 200, "[{\"uuid\":\"org-new\",\"capabilities\":[\"chat\"]}]")
+               .Respond("/api/organizations/org-new/usage", 200, UsageBody);
+        var next = await provider.FetchAsync(CancellationToken.None);
+
+        Assert.NotNull(next.Snapshot);
+        Assert.Equal("/api/organizations/org-new/usage", fetcher.Paths[^1]);
+    }
+
+    [Fact]
+    public async Task Forget_organization_looks_it_up_again()
+    {
+        var fetcher = Fetcher();
+        var provider = Provider(fetcher);
+        await provider.FetchAsync(CancellationToken.None);
+
+        provider.ForgetOrganization();
+        await provider.FetchAsync(CancellationToken.None);
+
+        Assert.Equal(2, fetcher.Paths.Count(p => p == "/api/organizations"));
+    }
+
+    [Fact]
+    public async Task Null_utilization_is_zero()
+    {
+        var fetcher = Fetcher(usageBody: "{\"five_hour\":{\"utilization\":null,\"resets_at\":null},\"seven_day\":{\"utilization\":3,\"resets_at\":null}}");
+        var result = await Provider(fetcher).FetchAsync(CancellationToken.None);
+        Assert.Equal(new LimitUsage(0, null), result.Snapshot!.FiveHour);
+    }
+
+    [Fact]
     public async Task Http_429_is_RateLimited()
     {
         var result = await Provider(Fetcher(429, "{\"error\":\"rate_limited\"}")).FetchAsync(CancellationToken.None);
