@@ -66,6 +66,17 @@ public partial class WidgetWindow : Window
     /// <summary>Where the middle of the badge is, in window coordinates (for wind and hover).</summary>
     internal Vec2 OrnamentCenter => _sim.OrnamentPosition + new Vec2(0, Ring.CenterOffset);
 
+    /// <summary>Re-reads look and motion settings (called live from the Settings window).</summary>
+    public void ApplySettings()
+    {
+        Ring.Scale = _settings.OrnamentScale;
+        Rope.RopeStyle = _settings.Rope;
+        _sim.SwingStrength = _settings.SwingStrength;
+        _placement = _placement with { RopeLength = _settings.RopeLength };
+        ApplyPlacement();
+        UpdateVisuals();
+    }
+
     public void MoveTo(PlacementResult placement)
     {
         _placement = placement;

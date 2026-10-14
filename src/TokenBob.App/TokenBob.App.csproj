@@ -7,13 +7,19 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>TokenBob</AssemblyName>
     <RootNamespace>TokenBob.App</RootNamespace>
+    <ApplicationIcon>Assets\TokenBob.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\TokenBob.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TokenBob.Core\TokenBob.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
   </ItemGroup>
 

@@ -100,6 +100,22 @@ public class UsagePollerTests
     }
 
     [Fact]
+    public void Forced_refresh_ignores_cooldown()
+    {
+        var provider = new QueueProvider();
+        using var poller = new UsagePoller(provider, _time, Five);
+        poller.Start();
+        WaitForWait(poller, 1);
+
+        Assert.True(poller.RefreshNow());
+        Eventually(() => provider.Calls == 2);
+        WaitForWait(poller, 2);
+
+        Assert.True(poller.RefreshNow(ignoreCooldown: true));
+        Eventually(() => provider.Calls == 3);
+    }
+
+    [Fact]
     public void Error_keeps_last_good_snapshot()
     {
         var provider = new QueueProvider().Enqueue(UsageResult.Ok(Snapshot(42)), UsageResult.Fail(UsageError.Offline));

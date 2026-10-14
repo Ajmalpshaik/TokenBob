@@ -60,13 +60,16 @@ public sealed class UsagePoller : IDisposable
         _ = LoopAsync();
     }
 
-    /// <summary>Fetch now. Returns false, without fetching, within 30 s of the previous call.</summary>
-    public bool RefreshNow()
+    /// <summary>
+    /// Fetch now. Returns false, without fetching, within 30 s of the previous call —
+    /// unless <paramref name="ignoreCooldown"/> is set (after signing in or out).
+    /// </summary>
+    public bool RefreshNow(bool ignoreCooldown = false)
     {
         var now = _time.GetUtcNow();
         lock (_gate)
         {
-            if (_lastManualRefresh is { } last && now - last < ManualCooldown) return false;
+            if (!ignoreCooldown && _lastManualRefresh is { } last && now - last < ManualCooldown) return false;
             _lastManualRefresh = now;
             _wake.TrySetResult();
         }
