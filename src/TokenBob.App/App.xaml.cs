@@ -43,6 +43,13 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        if (e.Args is ["--render-samples", var samplePath])
+        {
+            SampleSheet.Render(samplePath);
+            Shutdown();
+            return;
+        }
+
         _singleInstance = new Mutex(initiallyOwned: true, @"Local\TokenBob.SingleInstance", out var firstInstance);
         if (!firstInstance)
         {
@@ -63,6 +70,14 @@ public partial class App : Application
         _saveTimer = new DispatcherTimer(SaveDelay, DispatcherPriority.Background, (_, _) => SaveSettingsNow(), Dispatcher) { IsEnabled = false };
         if (_settings.StartWithWindows) TrySetStartup(true);   // keeps the path right if the exe moved
 
+        Palette.UseDark(WindowsTheme.IsDark);
+        WindowsTheme.Changed += () =>
+        {
+            Palette.UseDark(WindowsTheme.IsDark);
+            _widget?.Repaint();
+            Render();
+        };
+
         var placement = Placement.Resolve(Monitors.GetAll(), _settings.Monitor, _settings.AnchorXDevice, _settings.RopeLength);
         _widget = new WidgetWindow(_settings, placement);
         _presenter = new UsagePresenter(_widget);
@@ -73,7 +88,7 @@ public partial class App : Application
         _tray.RefreshClicked += () => _poller?.RefreshNow();
         _tray.SignInOutClicked += async () => await SignInOrOutAsync();
         _tray.QuitClicked += Shutdown;
-        _widget.Ornament.ContextMenu = _tray.BuildMenu();
+        _widget.OrnamentHost.ContextMenu = _tray.BuildMenu();
 
         _gestures = new GestureController(_widget, _settings, Monitors.GetAll);
         _gestures.SettingsRequested += OpenSettings;

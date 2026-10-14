@@ -13,6 +13,7 @@ public partial class HoverCard : UserControl
     {
         Accent.Fill = accent;
         Frame.Background = Palette.Card;
+        Frame.BorderBrush = Palette.Edge;
         Lines.Children.Clear();
         for (var i = 0; i < lines.Count; i++)
         {

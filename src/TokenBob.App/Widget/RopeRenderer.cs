@@ -13,12 +13,46 @@ internal static class RopeRenderer
     private static readonly Pen CordBasePen = RoundPen(Palette.CordBase, CordWidth);
     private static readonly Pen CordStripePen = FlatPen(Palette.CordStripe, 1.6);
     private static readonly Pen CordHighlightPen = RoundPen(Palette.CordHighlight, 1);
+    private static readonly Pen ChainLinkPen = RoundPen(Palette.BeadLink, 1.1);
+    private static readonly Pen BeadRimPen = FlatPen(Palette.BeadRim, 0.5);
+    private const double BeadRadius = 3.4;
+    private const double BeadGap = 8.2;
 
     public static void Draw(DrawingContext dc, IReadOnlyList<Vec2> points, RopeStyle style)
     {
         if (points.Count < 2) return;
-        // Bead chain arrives with the style work; the cord stands in until then.
-        DrawCord(dc, points);
+        if (style == RopeStyle.BeadChain) DrawBeadChain(dc, points);
+        else DrawCord(dc, points);
+    }
+
+    /// <summary>A metal ball chain like a lamp pull: shaded beads on a thin link, with a clasp at the end.</summary>
+    private static void DrawBeadChain(DrawingContext dc, IReadOnlyList<Vec2> points)
+    {
+        // Start one gap below the mount and stop short of the clasp so beads never pile up.
+        var beads = Samples(points, BeadGap).Skip(1).Select(s => s.At).ToList();
+        var end = points[^1];
+        var tail = (end - points[^2]).Normalized();
+        if (beads.Count > 0 && (beads[^1] - end).Length < BeadGap * 0.8) beads.RemoveAt(beads.Count - 1);
+
+        foreach (var bead in beads)
+            dc.DrawEllipse(Palette.Shadow, null, new Point(bead.X + 2, bead.Y + 2.5), BeadRadius, BeadRadius);
+
+        dc.DrawGeometry(null, ChainLinkPen, SmoothPath(points));
+
+        foreach (var bead in beads)
+            dc.DrawEllipse(Palette.BeadMetal, BeadRimPen, ToPoint(bead), BeadRadius, BeadRadius);
+
+        DrawClasp(dc, end, tail);
+        dc.DrawRoundedRectangle(Palette.BeadMetal, BeadRimPen, new Rect(points[0].X - 6, points[0].Y - 2, 12, 6), 2, 2);
+    }
+
+    /// <summary>The small metal sleeve that joins the chain to the ornament.</summary>
+    private static void DrawClasp(DrawingContext dc, Vec2 end, Vec2 direction)
+    {
+        var angle = Math.Atan2(direction.Y, direction.X) * 180 / Math.PI - 90;
+        dc.PushTransform(new RotateTransform(angle, end.X, end.Y));
+        dc.DrawRoundedRectangle(Palette.BeadMetal, BeadRimPen, new Rect(end.X - 2.6, end.Y - 9, 5.2, 9), 2.2, 2.2);
+        dc.Pop();
     }
 
     private static void DrawCord(DrawingContext dc, IReadOnlyList<Vec2> points)

@@ -25,11 +25,11 @@ public partial class WidgetWindow : Window
     private readonly WidgetSettings _settings;
     private readonly RopeSim _sim;
     private readonly Stopwatch _clock = new();
+    private readonly DispatcherTimer _hoverTimer;
     private PlacementResult _placement;
     private IntPtr _hwnd;
     private bool _rendering;
     private TimeSpan _lastFrame;
-    private readonly DispatcherTimer _hoverTimer;
 
     public WidgetWindow(WidgetSettings settings, PlacementResult placement)
     {
@@ -38,19 +38,23 @@ public partial class WidgetWindow : Window
         _placement = placement;
         _sim = new RopeSim(Vec2.Zero, placement.RopeLength, settings.SwingStrength);
 
-        Ring.Scale = settings.OrnamentScale;
+        UseStyle(settings.Style);
         Rope.RopeStyle = settings.Rope;
 
         SourceInitialized += OnSourceInitialized;
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(ApplyPlacement);
 
         _hoverTimer = new DispatcherTimer(HoverDelay, DispatcherPriority.Normal, OnHoverTimer, Dispatcher) { IsEnabled = false };
-        Ring.MouseEnter += (_, _) => _hoverTimer.Start();
-        Ring.MouseLeave += (_, _) => HideHover();
-        Ring.PreviewMouseLeftButtonDown += (_, _) => HideHover();
+        Host.MouseEnter += (_, _) => _hoverTimer.Start();
+        Host.MouseLeave += (_, _) => HideHover();
+        Host.PreviewMouseLeftButtonDown += (_, _) => HideHover();
     }
 
-    internal RingOrnament Ornament => Ring;
+    /// <summary>The ornament currently shown (ring or tag).</summary>
+    internal OrnamentBase Ornament { get; private set; } = null!;
+
+    /// <summary>The element that receives mouse input for whichever ornament is shown.</summary>
+    internal FrameworkElement OrnamentHost => Host;
 
     internal HoverCard Card => HoverContent;
 
@@ -63,18 +67,30 @@ public partial class WidgetWindow : Window
     /// <summary>The window's current bounds in device pixels.</summary>
     public ScreenRect WindowRectDevice { get; private set; }
 
-    /// <summary>Where the middle of the badge is, in window coordinates (for wind and hover).</summary>
-    internal Vec2 OrnamentCenter => _sim.OrnamentPosition + new Vec2(0, Ring.CenterOffset);
+    /// <summary>Where the middle of the ornament is, in window coordinates (for wind).</summary>
+    internal Vec2 OrnamentCenter => _sim.OrnamentPosition + new Vec2(0, Ornament.CenterOffset);
+
+    /// <summary>Raised after the ornament style is swapped, so its numbers can be filled in again.</summary>
+    public event Action? OrnamentReplaced;
 
     /// <summary>Re-reads look and motion settings (called live from the Settings window).</summary>
     public void ApplySettings()
     {
-        Ring.Scale = _settings.OrnamentScale;
+        UseStyle(_settings.Style);
+        Ornament.Scale = _settings.OrnamentScale;
         Rope.RopeStyle = _settings.Rope;
+        Rope.InvalidateVisual();
         _sim.SwingStrength = _settings.SwingStrength;
         _placement = _placement with { RopeLength = _settings.RopeLength };
         ApplyPlacement();
         UpdateVisuals();
+    }
+
+    /// <summary>Redraws everything after a theme change.</summary>
+    public void Repaint()
+    {
+        Ornament.InvalidateVisual();
+        Rope.InvalidateVisual();
     }
 
     public void MoveTo(PlacementResult placement)
@@ -96,16 +112,29 @@ public partial class WidgetWindow : Window
     /// <summary>Keeps a dragged hang point inside the window so the ornament is never clipped.</summary>
     internal Vec2 ClampToWindow(Vec2 hangTarget)
     {
-        var half = Ring.DesiredSize.Width / 2;
+        var size = Ornament.DesiredSize;
+        var half = size.Width / 2;
         var x = Math.Clamp(hangTarget.X, half, Math.Max(half, Root.Width - half));
-        var y = Math.Clamp(hangTarget.Y, 0, Math.Max(0, Root.Height - Ring.DesiredSize.Height));
+        var y = Math.Clamp(hangTarget.Y, 0, Math.Max(0, Root.Height - size.Height));
         return new Vec2(x, y);
+    }
+
+    private void UseStyle(OrnamentStyle style)
+    {
+        var wanted = style == OrnamentStyle.Tag ? typeof(HangingTag) : typeof(RingOrnament);
+        if (Ornament?.GetType() == wanted) return;
+
+        Ornament = style == OrnamentStyle.Tag ? new HangingTag() : new RingOrnament();
+        Ornament.Scale = _settings.OrnamentScale;
+        Host.Child = Ornament;
+        Host.UpdateLayout();
+        OrnamentReplaced?.Invoke();
     }
 
     private void OnHoverTimer(object? sender, EventArgs e)
     {
         _hoverTimer.Stop();
-        if (Ring.IsMouseOver && Mouse.LeftButton == MouseButtonState.Released) Hover.IsOpen = true;
+        if (Host.IsMouseOver && Mouse.LeftButton == MouseButtonState.Released) Hover.IsOpen = true;
     }
 
     private void HideHover()
@@ -164,9 +193,9 @@ public partial class WidgetWindow : Window
         Rope.Update(_sim.Points);
 
         var hang = _sim.OrnamentPosition;
-        var width = Ring.DesiredSize.Width > 0 ? Ring.DesiredSize.Width : Ring.ActualWidth;
-        Canvas.SetLeft(Ring, hang.X - width / 2);
-        Canvas.SetTop(Ring, hang.Y);
-        Ring.RenderTransform = new RotateTransform(_sim.OrnamentAngle * 180 / Math.PI, width / 2, 0);
+        var width = Ornament.DesiredSize.Width > 0 ? Ornament.DesiredSize.Width : Host.ActualWidth;
+        Canvas.SetLeft(Host, hang.X - width / 2);
+        Canvas.SetTop(Host, hang.Y);
+        Host.RenderTransform = new RotateTransform(_sim.OrnamentAngle * 180 / Math.PI, width / 2, 0);
     }
 }

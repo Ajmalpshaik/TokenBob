@@ -32,7 +32,7 @@ internal sealed class GestureController
         _settings = settings;
         _monitors = monitors;
 
-        var ornament = window.Ornament;
+        var ornament = window.OrnamentHost;
         ornament.MouseLeftButtonDown += OnDown;
         ornament.MouseMove += OnMove;
         ornament.MouseLeftButtonUp += OnUp;
@@ -68,20 +68,20 @@ internal sealed class GestureController
         var p = Position(e);
         _grabOffset = p - _window.Sim.OrnamentPosition;
         Handle(_recognizer.Down(p, CurrentModifiers(), Now));
-        if (!_busy) _window.Ornament.CaptureMouse();
+        if (!_busy) _window.OrnamentHost.CaptureMouse();
         e.Handled = true;
     }
 
     private void OnMove(object sender, MouseEventArgs e)
     {
-        if (!_window.Ornament.IsMouseCaptured) return;
+        if (!_window.OrnamentHost.IsMouseCaptured) return;
         Handle(_recognizer.Move(Position(e), Now));
     }
 
     private void OnUp(object sender, MouseButtonEventArgs e)
     {
         var events = _recognizer.Up(Position(e), Now);
-        if (_window.Ornament.IsMouseCaptured) _window.Ornament.ReleaseMouseCapture();
+        if (_window.OrnamentHost.IsMouseCaptured) _window.OrnamentHost.ReleaseMouseCapture();
         Handle(events);
     }
 

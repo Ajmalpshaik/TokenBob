@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media.Animation;
+using TokenBob.App.Widget.Styles;
 using TokenBob.Core.Alerts;
 using TokenBob.Core.Usage;
 
@@ -11,32 +12,50 @@ internal sealed class UsagePresenter
     private readonly WidgetWindow _window;
     private bool _pulsing;
 
-    public UsagePresenter(WidgetWindow window) => _window = window;
+    public UsagePresenter(WidgetWindow window)
+    {
+        _window = window;
+        window.OrnamentReplaced += () =>
+        {
+            if (Current is { } model) Show(model);
+        };
+    }
 
     public UsageDisplayModel? Current { get; private set; }
 
     public void Show(UsageDisplayModel model)
     {
         Current = model;
-        var ring = _window.Ornament;
-        ring.CenterText = model.CenterText;
-        ring.IsGrey = model.IsGrey;
-        ring.FiveHourPercent = model.FiveHour?.RingPercent ?? 0;
-        ring.WeeklyPercent = model.Weekly?.RingPercent ?? 0;
-        ring.FiveHourLevel = model.FiveHour?.Level ?? ColorLevel.Green;
-        ring.WeeklyLevel = model.Weekly?.Level ?? ColorLevel.Green;
+        var ornament = _window.Ornament;
+        Fill(ornament, model);
 
-        var worst = (ColorLevel)Math.Max((int)ring.FiveHourLevel, (int)ring.WeeklyLevel);
+        var worst = (ColorLevel)Math.Max((int)ornament.FiveHourLevel, (int)ornament.WeeklyLevel);
         _window.Card.Show(model.HoverLines, Palette.ForLevel(worst, model.IsGrey));
 
         SetPulse(model.IsLoading);
+    }
+
+    /// <summary>Copies a display model onto any ornament style.</summary>
+    public static void Fill(OrnamentBase ornament, UsageDisplayModel model)
+    {
+        ornament.CenterText = model.CenterText;
+        ornament.HasData = model.FiveHour is not null;
+        ornament.FiveHourText = model.FiveHour?.PercentText ?? "";
+        ornament.WeeklyText = model.Weekly?.PercentText ?? "";
+        ornament.FiveHourReset = model.FiveHour?.ResetShort ?? "";
+        ornament.WeeklyReset = model.Weekly?.ResetShort ?? "";
+        ornament.IsGrey = model.IsGrey;
+        ornament.FiveHourPercent = model.FiveHour?.RingPercent ?? 0;
+        ornament.WeeklyPercent = model.Weekly?.RingPercent ?? 0;
+        ornament.FiveHourLevel = model.FiveHour?.Level ?? ColorLevel.Green;
+        ornament.WeeklyLevel = model.Weekly?.Level ?? ColorLevel.Green;
     }
 
     private void SetPulse(bool on)
     {
         if (on == _pulsing) return;
         _pulsing = on;
-        var ring = _window.Ornament;
+        var ring = _window.OrnamentHost;
         if (on)
         {
             ring.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, 0.45, TimeSpan.FromSeconds(0.9))
