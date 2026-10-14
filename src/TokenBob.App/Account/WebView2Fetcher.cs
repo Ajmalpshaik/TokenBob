@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using TokenBob.Core.Usage;
@@ -10,17 +11,45 @@ namespace TokenBob.App.Account;
 
 /// <summary>
 /// Makes claude.ai requests from a hidden WebView2 that shares the sign-in profile, so
-/// they behave exactly like the website. Must be used from the UI thread.
+/// they behave exactly like the website. The browser engine is started for a refresh and
+/// shut down 10 s after the last request, so it uses no memory between refreshes.
+/// Must be used from the UI thread.
 /// </summary>
 internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
 {
     private const string OriginUrl = "https://claude.ai/api/organizations";
+    private static readonly TimeSpan IdleShutdown = TimeSpan.FromSeconds(10);
 
+    private readonly DispatcherTimer _idle;
     private Window? _host;
     private WebView2? _view;
     private bool _originReady;
 
+    public WebView2Fetcher()
+    {
+        _idle = new DispatcherTimer(IdleShutdown, DispatcherPriority.Background, (_, _) => Release(), Dispatcher.CurrentDispatcher)
+        {
+            IsEnabled = false,
+        };
+    }
+
+    /// <summary>Raised after the browser engine has been shut down.</summary>
+    public event Action? Released;
+
     public async Task<WebResponse> GetAsync(string path, CancellationToken ct)
+    {
+        _idle.Stop();
+        try
+        {
+            return await GetCoreAsync(path, ct);
+        }
+        finally
+        {
+            _idle.Start();
+        }
+    }
+
+    private async Task<WebResponse> GetCoreAsync(string path, CancellationToken ct)
     {
         var core = await EnsureOriginAsync(ct);
         var response = await WebViewFetch.GetAsync(core, path, ct);
@@ -39,12 +68,21 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
         var core = await EnsureCoreAsync();
         core.CookieManager.DeleteAllCookies();
         _originReady = false;
+        _idle.Start();
     }
 
-    public void Dispose()
+    public void Dispose() => Release();
+
+    private void Release()
     {
-        _view?.Dispose();
+        _idle.Stop();
+        if (_view is null) return;
+        _view.Dispose();
         _host?.Close();
+        _view = null;
+        _host = null;
+        _originReady = false;
+        Released?.Invoke();
     }
 
     private async Task<CoreWebView2> EnsureOriginAsync(CancellationToken ct)

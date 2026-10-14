@@ -123,6 +123,7 @@ public partial class App : Application
         };
 
         _fetcher = new WebView2Fetcher();
+        _fetcher.Released += MemoryTrim.Trim;
         IUsageProvider provider = _demo ? new DemoUsageProvider() : new ClaudeWebUsageProvider(_fetcher, TimeProvider.System, _log);
         _poller = new UsagePoller(provider, TimeProvider.System, TimeSpan.FromMinutes(_settings.RefreshMinutes));
         _poller.Updated += OnUsage;

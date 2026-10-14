@@ -7,6 +7,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>TokenBob</AssemblyName>
     <RootNamespace>TokenBob.App</RootNamespace>
+    <!-- A widget sits idle almost all the time: favour a small footprint over GC throughput. -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>false</TieredPGO>
     <ApplicationIcon>Assets\TokenBob.ico</ApplicationIcon>
   </PropertyGroup>
 
