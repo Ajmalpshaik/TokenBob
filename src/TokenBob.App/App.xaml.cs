@@ -41,6 +41,9 @@ public partial class App : Application
     private AlertMemory _alertMemory = new();
     private UsageSnapshot? _lastEvaluated;
     private bool _demo;
+    private FullscreenWatcher? _fullscreen;
+    private bool _hiddenByUser;
+    private bool _hiddenForFullscreen;
 
     private bool SignedIn => _poller?.State is { LastGood: not null, Status: not UsageError.NotSignedIn };
 
@@ -110,6 +113,14 @@ public partial class App : Application
             Browser.Open(AppInfo.UsagePageUrl);
         };
         _widget.Show();
+
+        _fullscreen = new FullscreenWatcher(() => _widget.Placement.Monitor, Dispatcher) { Enabled = _settings.AutoHideFullscreen };
+        _fullscreen.FullscreenChanged += fullscreen =>
+        {
+            _hiddenForFullscreen = fullscreen;
+            _log.Info(fullscreen ? "Fullscreen app: hiding widget" : "Fullscreen app closed: showing widget");
+            UpdateWidgetVisibility();
+        };
 
         _fetcher = new WebView2Fetcher();
         IUsageProvider provider = _demo ? new DemoUsageProvider() : new ClaudeWebUsageProvider(_fetcher, TimeProvider.System, _log);
@@ -222,6 +233,7 @@ public partial class App : Application
         _widget?.ApplySettings();
         if (_poller is not null) _poller.Interval = TimeSpan.FromMinutes(_settings.RefreshMinutes);
         if (_settings.StartWithWindows != StartupRegistration.IsEnabled()) TrySetStartup(_settings.StartWithWindows);
+        if (_fullscreen is not null) _fullscreen.Enabled = _settings.AutoHideFullscreen;
         _saveTimer?.Stop();
         _saveTimer?.Start();
     }
@@ -246,10 +258,15 @@ public partial class App : Application
 
     private void ToggleWidget()
     {
-        if (_widget is null) return;
-        if (_widget.IsVisible) _widget.Hide();
-        else _widget.Show();
-        _tray?.SetWidgetVisible(_widget.IsVisible);
+        _hiddenByUser = !_hiddenByUser;
+        UpdateWidgetVisibility();
+    }
+
+    private void UpdateWidgetVisibility()
+    {
+        var visible = !_hiddenByUser && !_hiddenForFullscreen;
+        _widget?.FadeTo(visible);
+        _tray?.SetWidgetVisible(!_hiddenByUser);
     }
 
     private async Task SignInOrOutAsync()

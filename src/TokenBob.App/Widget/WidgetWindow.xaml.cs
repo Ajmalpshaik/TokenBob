@@ -86,6 +86,25 @@ public partial class WidgetWindow : Window
         UpdateVisuals();
     }
 
+    /// <summary>Fades the widget out (then hides it) or shows it and fades it in, over 200 ms.</summary>
+    public void FadeTo(bool visible)
+    {
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(visible ? 1 : 0, TimeSpan.FromMilliseconds(200));
+        if (visible)
+        {
+            if (!IsVisible)
+            {
+                Opacity = 0;
+                Show();
+            }
+        }
+        else
+        {
+            fade.Completed += (_, _) => { if (Opacity == 0) Hide(); };
+        }
+        BeginAnimation(OpacityProperty, fade);
+    }
+
     /// <summary>A short nervous jitter: six alternating sideways nudges over 0.3 s.</summary>
     public void Shiver()
     {
