@@ -29,8 +29,7 @@ useful at a glance.
 
 - No local Claude Code token/cost statistics (only plan limits).
 - No macOS or Linux.
-- No installer, Microsoft Store package, or auto-update. v1 ships as a single
-  `TokenBob.exe`.
+- No auto-update. (An installer was added later at the user's request — see §11.)
 - TokenBob never reads Claude Desktop's or Claude Code's stored logins. It has
   its own one-time sign-in (see §7).
 - No style C (spark charm) and no thin-thread rope.
@@ -400,3 +399,26 @@ GET https://claude.ai/api/organizations/{uuid}/usage → { "five_hour": {…}, "
 8. Extras: hanging tag style, bead chain, alerts + notifications, hover card,
    auto-hide, pull-to-refresh, wind, double-click, start with Windows.
 9. README with demo GIF, CHANGELOG, tag `v0.1.0`, release.
+
+## 11. One-click install (added 2026-10-14, user request)
+
+For people who don't code: download `TokenBob.exe`, double-click, click **Install**.
+
+- **Self-installing exe.** A published (single-file) `TokenBob.exe` that is not running from
+  `%LocalAppData%\Programs\TokenBob\` shows a small *Install TokenBob* window (or *Update
+  TokenBob* when a copy is already installed) with a "Start with Windows" checkbox (on) and an
+  **Install** button. No admin rights.
+- **Install / update:** asks a running TokenBob to quit (named event `Local\TokenBob.Quit`, then
+  kill after 5 s), copies itself to `%LocalAppData%\Programs\TokenBob\TokenBob.exe`, creates a
+  Start-menu shortcut, registers an *Installed apps* entry
+  (`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\TokenBob`), sets start with Windows
+  for the installed path if ticked, launches the installed copy and exits.
+- **Uninstall** from Settings → Apps → Installed apps runs `TokenBob.exe --uninstall`: confirm
+  (optionally also delete settings and the Claude sign-in in `%AppData%\TokenBob`), quit the
+  running copy, remove startup entries, shortcut and uninstall entry, then delete the install
+  folder after exiting.
+- Developer builds (not single-file) and the `--render-samples`, `--demo-alerts` and
+  `--no-install` options always just run.
+- **SmartScreen:** an unsigned download shows "Windows protected your PC" once (More info → Run
+  anyway); the README explains it. Removing it for everyone is the next step: a Microsoft Store
+  package (Microsoft signs it), prepared after the installer.
