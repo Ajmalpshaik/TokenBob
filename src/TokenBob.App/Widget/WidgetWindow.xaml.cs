@@ -86,6 +86,20 @@ public partial class WidgetWindow : Window
         UpdateVisuals();
     }
 
+    /// <summary>A short nervous jitter: six alternating sideways nudges over 0.3 s.</summary>
+    public void Shiver()
+    {
+        var nudges = 0;
+        var timer = new DispatcherTimer(DispatcherPriority.Render, Dispatcher) { Interval = TimeSpan.FromMilliseconds(50) };
+        timer.Tick += (_, _) =>
+        {
+            _sim.ApplyImpulse(new Vec2(nudges % 2 == 0 ? 120 : -120, 0));
+            Wake();
+            if (++nudges == 6) timer.Stop();
+        };
+        timer.Start();
+    }
+
     /// <summary>Redraws everything after a theme change.</summary>
     public void Repaint()
     {

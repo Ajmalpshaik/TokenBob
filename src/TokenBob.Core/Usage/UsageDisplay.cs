@@ -59,6 +59,15 @@ public static class UsageDisplay
             $"5h {five.PercentText} · Week {week.PercentText}");
     }
 
+    /// <summary>Title and body of the Windows notification for a threshold crossing.</summary>
+    public static (string Title, string Body) NotificationText(ThresholdCrossed crossing, UsageSnapshot snapshot,
+        DateTimeOffset now, TimeZoneInfo zone, CultureInfo culture)
+    {
+        var (name, usage) = crossing.Limit == LimitKind.FiveHour ? ("5-hour", snapshot.FiveHour) : ("Weekly", snapshot.Weekly);
+        var reset = Limit(usage, now, zone, culture).ResetClock;
+        return (AppInfo.Name, $"{name} limit at {crossing.Threshold}% — {reset}");
+    }
+
     private static UsageDisplayModel Message(string center, string line) =>
         new(center, true, false, null, null, [line], $"{AppInfo.Name} — {line}");
 

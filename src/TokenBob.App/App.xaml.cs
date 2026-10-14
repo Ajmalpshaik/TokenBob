@@ -9,6 +9,7 @@ using TokenBob.App.Settings;
 using TokenBob.App.Tray;
 using TokenBob.App.Widget;
 using TokenBob.Core;
+using TokenBob.Core.Alerts;
 using TokenBob.Core.Config;
 using TokenBob.Core.Logging;
 using TokenBob.Core.Physics;
@@ -36,6 +37,10 @@ public partial class App : Application
     private SignInWindow? _signIn;
     private SettingsWindow? _settingsWindow;
     private bool _signInOfferedThisLaunch;
+    private JsonStore<AlertMemory>? _alertStore;
+    private AlertMemory _alertMemory = new();
+    private UsageSnapshot? _lastEvaluated;
+    private bool _demo;
 
     private bool SignedIn => _poller?.State is { LastGood: not null, Status: not UsageError.NotSignedIn };
 
@@ -49,6 +54,8 @@ public partial class App : Application
             Shutdown();
             return;
         }
+
+        _demo = e.Args is ["--demo-alerts"];
 
         _singleInstance = new Mutex(initiallyOwned: true, @"Local\TokenBob.SingleInstance", out var firstInstance);
         if (!firstInstance)
@@ -64,6 +71,9 @@ public partial class App : Application
             args.Handled = true;
         };
         _log.Info($"TokenBob {typeof(App).Assembly.GetName().Version} starting");
+
+        _alertStore = new JsonStore<AlertMemory>(AppPaths.AlertStateFile, _log);
+        if (!_demo) _alertMemory = _alertStore.Load();
 
         _settingsStore = new JsonStore<WidgetSettings>(AppPaths.SettingsFile, _log);
         _settings = _settingsStore.Load().Normalized();
@@ -102,10 +112,11 @@ public partial class App : Application
         _widget.Show();
 
         _fetcher = new WebView2Fetcher();
-        _poller = new UsagePoller(new ClaudeWebUsageProvider(_fetcher, TimeProvider.System, _log),
-            TimeProvider.System, TimeSpan.FromMinutes(_settings.RefreshMinutes));
+        IUsageProvider provider = _demo ? new DemoUsageProvider() : new ClaudeWebUsageProvider(_fetcher, TimeProvider.System, _log);
+        _poller = new UsagePoller(provider, TimeProvider.System, TimeSpan.FromMinutes(_settings.RefreshMinutes));
         _poller.Updated += OnUsage;
         _poller.Start();
+        if (_demo) StartDemo((DemoUsageProvider)provider);
 
         _minuteTimer = new DispatcherTimer(TimeSpan.FromSeconds(60), DispatcherPriority.Background, (_, _) => Render(), Dispatcher);
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
@@ -127,11 +138,55 @@ public partial class App : Application
     private void OnUsage(UsageState state)
     {
         Render();
+        if (state is { Status: null, IsLoading: false, LastGood: { } fresh } && !ReferenceEquals(fresh, _lastEvaluated))
+        {
+            RunAlerts(_lastEvaluated, fresh);
+            _lastEvaluated = fresh;
+        }
         if (state is { Status: UsageError.NotSignedIn, IsLoading: false } && !_signInOfferedThisLaunch)
         {
             _signInOfferedThisLaunch = true;
             ShowSignIn();
         }
+    }
+
+    private void RunAlerts(UsageSnapshot? previous, UsageSnapshot current)
+    {
+        var events = AlertRules.Evaluate(previous, current, _alertMemory);
+        if (events.Count == 0) return;
+        if (!_demo) _alertStore?.Save(_alertMemory);
+
+        foreach (var alert in events)
+        {
+            switch (alert)
+            {
+                case ThresholdCrossed crossing when _settings.Notifications:
+                    var (title, body) = UsageDisplay.NotificationText(crossing, current, DateTimeOffset.Now, TimeZoneInfo.Local, CultureInfo.CurrentCulture);
+                    _tray?.Notify(title, body);
+                    _log.Info($"Notified: {crossing.Limit} {crossing.Threshold}%");
+                    break;
+                case Shiver:
+                    _widget?.Shiver();
+                    break;
+                case ResetBounce:
+                    _widget?.Sim.ApplyImpulse(new Vec2(0, -900));
+                    _widget?.Wake();
+                    break;
+            }
+        }
+    }
+
+    /// <summary>Developer demo: fetch the next fake step every 4 seconds until the reset.</summary>
+    private void StartDemo(DemoUsageProvider provider)
+    {
+        _log.Info("Alert demo running");
+        var timer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromSeconds(4) };
+        timer.Tick += (_, _) =>
+        {
+            if (provider.Finished) timer.Stop();
+            else _poller?.RefreshNow(ignoreCooldown: true);
+        };
+        timer.Start();
     }
 
     private void Render()

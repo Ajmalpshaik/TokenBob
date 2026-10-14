@@ -123,6 +123,16 @@ public class UsageDisplayTests
     }
 
     [Fact]
+    public void Notification_text()
+    {
+        var s = Snap(five: 81, week: 96);
+        Assert.Equal(("TokenBob", "5-hour limit at 80% — resets 12:10 PM"),
+            UsageDisplay.NotificationText(new ThresholdCrossed(LimitKind.FiveHour, 80), s, Now, TimeZoneInfo.Utc, EnUs));
+        Assert.Equal(("TokenBob", "Weekly limit at 95% — resets Fri 9:00 AM"),
+            UsageDisplay.NotificationText(new ThresholdCrossed(LimitKind.Weekly, 95), s, Now, TimeZoneInfo.Utc, EnUs));
+    }
+
+    [Fact]
     public void Over_100_percent_clamps_ring_but_shows_real_number()
     {
         var m = Show(Snap(five: 104));
