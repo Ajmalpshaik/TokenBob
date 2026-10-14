@@ -81,7 +81,7 @@ public partial class App : Application
         _settingsStore = new JsonStore<WidgetSettings>(AppPaths.SettingsFile, _log);
         _settings = _settingsStore.Load().Normalized();
         _saveTimer = new DispatcherTimer(SaveDelay, DispatcherPriority.Background, (_, _) => SaveSettingsNow(), Dispatcher) { IsEnabled = false };
-        if (_settings.StartWithWindows) TrySetStartup(true);   // keeps the path right if the exe moved
+        SyncStartup();
 
         Palette.UseDark(WindowsTheme.IsDark);
         WindowsTheme.Changed += () =>
@@ -218,6 +218,7 @@ public partial class App : Application
             _settingsWindow.Activate();
             return;
         }
+        SyncStartup();
         _settingsWindow = new SettingsWindow(_settings);
         _settingsWindow.Changed += OnSettingsChanged;
         _settingsWindow.RefreshRequested += () => _poller?.RefreshNow();
@@ -243,6 +244,23 @@ public partial class App : Application
     {
         _saveTimer?.Stop();
         _settingsStore?.Save(_settings);
+    }
+
+    /// <summary>
+    /// Keeps the startup entry pointing at this exe, adds Windows' approval if it's missing,
+    /// and shows what Windows will really do (the user may have switched it off there).
+    /// </summary>
+    private void SyncStartup()
+    {
+        try
+        {
+            StartupRegistration.Refresh();
+            _settings.StartWithWindows = StartupRegistration.IsEnabled();
+        }
+        catch (Exception ex)
+        {
+            _log.Error("Couldn't check start with Windows", ex);
+        }
     }
 
     private void TrySetStartup(bool enabled)
