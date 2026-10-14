@@ -35,6 +35,14 @@ public class ClaudeWebUsageProviderTests
     }
 
     [Fact]
+    public async Task Success_is_logged_without_numbers()
+    {
+        await Provider(Fetcher()).FetchAsync(CancellationToken.None);
+        Assert.Contains("INFO Usage updated", _log.All);
+        Assert.DoesNotContain("42", _log.All);
+    }
+
+    [Fact]
     public async Task Picks_first_chat_capable_organization()
     {
         var fetcher = new FakeFetcher()

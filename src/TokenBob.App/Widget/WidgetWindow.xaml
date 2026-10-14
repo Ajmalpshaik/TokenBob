@@ -14,5 +14,9 @@
     <Canvas x:Name="Root">
         <widget:RopeVisual x:Name="Rope" IsHitTestVisible="False" />
         <styles:RingOrnament x:Name="Ring" Cursor="Hand" />
+        <Popup x:Name="Hover" PlacementTarget="{Binding ElementName=Ring}" Placement="Left"
+               AllowsTransparency="True" StaysOpen="True" Focusable="False" PopupAnimation="Fade">
+            <widget:HoverCard x:Name="HoverContent" />
+        </Popup>
     </Canvas>
 </Window>

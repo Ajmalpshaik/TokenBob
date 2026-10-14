@@ -58,6 +58,7 @@ public sealed class ClaudeWebUsageProvider : IUsageProvider
                 _log.Warn("Usage response did not have the expected five_hour/seven_day shape");
                 return UsageResult.Fail(UsageError.Unreadable);
             }
+            _log.Info("Usage updated");
             return UsageResult.Ok(snapshot);
         }
         catch (HttpRequestException ex)

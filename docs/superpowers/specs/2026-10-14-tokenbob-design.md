@@ -294,11 +294,14 @@ RopeSim ─► WidgetWindow render loop (positions, angle, stretch)
   user's Windows account. It is never uploaded, committed, or logged. TokenBob
   never sees the password.
 - **Navigation lock:** the Sign-in window only navigates to `https` URLs on
-  `claude.ai`, `anthropic.com` (and their subdomains) and `accounts.google.com`.
-  Anything else is cancelled. Pop-up requests open in the same window under the
-  same rule.
-- Sign-in is complete when `GET /api/organizations` returns 200 with JSON; the
-  window then closes itself and usage refreshes.
+  `claude.ai`, `anthropic.com` (and their subdomains), and Google's sign-in hosts
+  (`accounts.google.<country>`, `www.google.<country>`, `accounts.youtube.com`),
+  which Google visits to finish a login. Anything else is cancelled and its host
+  is logged. Pop-up requests open in the same window under the same rule.
+- Sign-in is complete when `GET /api/organizations` returns 200 with JSON. This is
+  checked after every page load, every in-page navigation, and every 3 s, because
+  claude.ai switches pages without full loads. The window then closes itself and
+  usage refreshes.
 - **Sign out** (tray or Settings) deletes all cookies in the profile.
 
 ### 7.2 Endpoints
@@ -315,8 +318,8 @@ GET https://claude.ai/api/organizations/{uuid}/usage → { "five_hour": {…}, "
 - Organization choice: the first organization whose `capabilities` contains
   `"chat"`, else the first one. Cached in memory and re-fetched if a usage call
   returns 404.
-- Expected usage fields (confirmed against the real response on the first
-  successful sign-in in build step 11): `five_hour.utilization` (0–100),
+- Usage fields (**confirmed 2026-10-14** against a real response):
+  `five_hour.utilization` (0–100, e.g. `7.0`),
   `five_hour.resets_at` (ISO-8601), `seven_day.utilization`,
   `seven_day.resets_at`. A limit object or `resets_at` may be `null` (no active
   window) → 0% / no reset time. Unknown extra fields are ignored. Missing

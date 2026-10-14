@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using TokenBob.App.Widget.Styles;
 using TokenBob.Core.Config;
 using TokenBob.Core.Physics;
@@ -18,6 +20,7 @@ namespace TokenBob.App.Widget;
 public partial class WidgetWindow : Window
 {
     private const double OrnamentRoom = 160;
+    private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(400);
 
     private readonly WidgetSettings _settings;
     private readonly RopeSim _sim;
@@ -26,6 +29,7 @@ public partial class WidgetWindow : Window
     private IntPtr _hwnd;
     private bool _rendering;
     private TimeSpan _lastFrame;
+    private readonly DispatcherTimer _hoverTimer;
 
     public WidgetWindow(WidgetSettings settings, PlacementResult placement)
     {
@@ -39,9 +43,16 @@ public partial class WidgetWindow : Window
 
         SourceInitialized += OnSourceInitialized;
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(ApplyPlacement);
+
+        _hoverTimer = new DispatcherTimer(HoverDelay, DispatcherPriority.Normal, OnHoverTimer, Dispatcher) { IsEnabled = false };
+        Ring.MouseEnter += (_, _) => _hoverTimer.Start();
+        Ring.MouseLeave += (_, _) => HideHover();
+        Ring.PreviewMouseLeftButtonDown += (_, _) => HideHover();
     }
 
     internal RingOrnament Ornament => Ring;
+
+    internal HoverCard Card => HoverContent;
 
     internal Canvas Surface => Root;
 
@@ -78,6 +89,18 @@ public partial class WidgetWindow : Window
         var x = Math.Clamp(hangTarget.X, half, Math.Max(half, Root.Width - half));
         var y = Math.Clamp(hangTarget.Y, 0, Math.Max(0, Root.Height - Ring.DesiredSize.Height));
         return new Vec2(x, y);
+    }
+
+    private void OnHoverTimer(object? sender, EventArgs e)
+    {
+        _hoverTimer.Stop();
+        if (Ring.IsMouseOver && Mouse.LeftButton == MouseButtonState.Released) Hover.IsOpen = true;
+    }
+
+    private void HideHover()
+    {
+        _hoverTimer.Stop();
+        Hover.IsOpen = false;
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
