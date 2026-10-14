@@ -21,12 +21,15 @@ internal static class StartupRegistration
         return StartupApproval.Read(ReadApproval()) != StartupApprovalState.Disabled;
     }
 
-    /// <summary>The user ticked or unticked "Start with Windows" in TokenBob.</summary>
-    public static void Set(bool enabled)
+    /// <summary>
+    /// The user ticked or unticked "Start with Windows" (in Settings or the installer).
+    /// <paramref name="exePath"/> defaults to this exe; the installer passes the installed copy.
+    /// </summary>
+    public static void Set(bool enabled, string? exePath = null)
     {
         using var run = Registry.CurrentUser.CreateSubKey(RunKey);
         using var approved = Registry.CurrentUser.CreateSubKey(ApprovedKey);
-        if (enabled && Environment.ProcessPath is { } exe)
+        if (enabled && (exePath ?? Environment.ProcessPath) is { } exe)
         {
             run.SetValue(AppInfo.Name, $"\"{exe}\"");
             approved.SetValue(AppInfo.Name, StartupApproval.EnabledValue(), RegistryValueKind.Binary);

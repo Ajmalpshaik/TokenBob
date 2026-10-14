@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using TokenBob.App.Account;
+using TokenBob.App.Install;
 using TokenBob.App.Input;
 using TokenBob.App.Platform;
 using TokenBob.App.Settings;
@@ -11,6 +12,7 @@ using TokenBob.App.Widget;
 using TokenBob.Core;
 using TokenBob.Core.Alerts;
 using TokenBob.Core.Config;
+using TokenBob.Core.Install;
 using TokenBob.Core.Logging;
 using TokenBob.Core.Physics;
 using TokenBob.Core.Screens;
@@ -45,6 +47,8 @@ public partial class App : Application
     private bool _hiddenByUser;
     private bool _hiddenForFullscreen;
 
+    private EventWaitHandle? _quitSignal;
+
     private bool SignedIn => _poller?.State is { LastGood: not null, Status: not UsageError.NotSignedIn };
 
     protected override void OnStartup(StartupEventArgs e)
@@ -60,6 +64,21 @@ public partial class App : Application
 
         _demo = e.Args is ["--demo-alerts"];
 
+        var paths = InstallerService.Paths;
+        switch (Installer.Decide(e.Args, Environment.ProcessPath ?? "", paths, InstallerService.IsInstalled, InstallerService.IsSingleFileBuild))
+        {
+            case LaunchMode.Install or LaunchMode.Update:
+                var mode = InstallerService.IsInstalled ? LaunchMode.Update : LaunchMode.Install;
+                var window = new InstallWindow(mode, new FileLog(AppPaths.LogsDir, TimeProvider.System));
+                window.Closed += (_, _) => Shutdown();
+                window.Show();
+                return;
+            case LaunchMode.Uninstall:
+                RunUninstall();
+                Shutdown();
+                return;
+        }
+
         _singleInstance = new Mutex(initiallyOwned: true, @"Local\TokenBob.SingleInstance", out var firstInstance);
         if (!firstInstance)
         {
@@ -74,6 +93,7 @@ public partial class App : Application
             args.Handled = true;
         };
         _log.Info($"TokenBob {typeof(App).Assembly.GetName().Version} starting");
+        ListenForQuit();
 
         _alertStore = new JsonStore<AlertMemory>(AppPaths.AlertStateFile, _log);
         if (!_demo) _alertMemory = _alertStore.Load();
@@ -132,6 +152,32 @@ public partial class App : Application
 
         _minuteTimer = new DispatcherTimer(TimeSpan.FromSeconds(60), DispatcherPriority.Background, (_, _) => Render(), Dispatcher);
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
+    }
+
+    /// <summary>An installer or uninstaller sets this event to close TokenBob cleanly.</summary>
+    private void ListenForQuit()
+    {
+        _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, InstallerService.QuitEventName);
+        var signal = _quitSignal;
+        new Thread(() =>
+        {
+            signal.WaitOne();
+            Dispatcher.BeginInvoke(Shutdown);
+        }) { IsBackground = true, Name = "TokenBob quit listener" }.Start();
+    }
+
+    private static void RunUninstall()
+    {
+        if (MessageBox.Show("Remove TokenBob from this PC?", "Uninstall TokenBob",
+                MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+
+        var removeData = MessageBox.Show(
+            "Also remove your TokenBob settings and its Claude sign-in from this PC?" + Environment.NewLine + Environment.NewLine +
+            "Choose No to keep them in case you install TokenBob again.",
+            "Uninstall TokenBob", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        InstallerService.Uninstall(removeData);
+        MessageBox.Show("TokenBob was removed.", "Uninstall TokenBob", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     protected override void OnExit(ExitEventArgs e)

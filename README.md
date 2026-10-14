@@ -8,16 +8,23 @@ stretches, spins and settles back like a real thing on a string.
 
 ![TokenBob styles: ring and hanging tag, on a twisted cord or a bead chain, in light and dark](docs/images/styles.png)
 
-## Download
+## Install
 
-Get **`TokenBob.exe`** from the [latest release](https://github.com/Ajmalpshaik/TokenBob/releases/latest) and run it.
-It's a single file — nothing to install.
+1. Download **`TokenBob.exe`** from the [latest release](https://github.com/Ajmalpshaik/TokenBob/releases/latest).
+2. Double-click it and click **Install**. That's it — no admin password needed.
+3. A small window asks you to **sign in to Claude once** (email code or "Continue with Google").
+   After that TokenBob stays signed in for weeks.
 
-- Windows 10 or 11, 64-bit
-- Microsoft Edge WebView2 Runtime (already part of Windows 11)
+TokenBob installs to `%LocalAppData%\Programs\TokenBob`, adds itself to the Start menu and (if you
+leave the box ticked) starts with Windows. To update, download a newer `TokenBob.exe` and
+double-click it. To remove it: **Settings → Apps → Installed apps → TokenBob → Uninstall**.
 
-On first run a small window asks you to **sign in to Claude once** (email code or "Continue with
-Google"). After that TokenBob stays signed in for weeks.
+> **"Windows protected your PC"?** Windows shows this for new downloads that aren't signed with a
+> paid publisher certificate. Click **More info → Run anyway** once. A Microsoft Store version,
+> which doesn't show this, is planned.
+
+Needs Windows 10 or 11 (64-bit) and the Microsoft Edge WebView2 Runtime, which is already part of
+Windows 11.
 
 ## What it shows
 
