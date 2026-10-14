@@ -1,10 +1,9 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
-using TokenBob.App.Platform;
+using TokenBob.App.Widget.Styles;
 using TokenBob.Core.Config;
 using TokenBob.Core.Physics;
 using TokenBob.Core.Screens;
@@ -27,7 +26,6 @@ public partial class WidgetWindow : Window
     private IntPtr _hwnd;
     private bool _rendering;
     private TimeSpan _lastFrame;
-    private Vec2 _grabOffset;
 
     public WidgetWindow(WidgetSettings settings, PlacementResult placement)
     {
@@ -41,16 +39,21 @@ public partial class WidgetWindow : Window
 
         SourceInitialized += OnSourceInitialized;
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(ApplyPlacement);
-        Ring.MouseLeftButtonDown += OnOrnamentDown;
-        Ring.MouseMove += OnOrnamentMove;
-        Ring.MouseLeftButtonUp += OnOrnamentUp;
     }
 
-    internal Styles.RingOrnament Ornament => Ring;
+    internal RingOrnament Ornament => Ring;
+
+    internal Canvas Surface => Root;
 
     internal RopeSim Sim => _sim;
 
     public PlacementResult Placement => _placement;
+
+    /// <summary>The window's current bounds in device pixels.</summary>
+    public ScreenRect WindowRectDevice { get; private set; }
+
+    /// <summary>Where the middle of the badge is, in window coordinates (for wind and hover).</summary>
+    internal Vec2 OrnamentCenter => _sim.OrnamentPosition + new Vec2(0, Ring.CenterOffset);
 
     public void MoveTo(PlacementResult placement)
     {
@@ -68,6 +71,15 @@ public partial class WidgetWindow : Window
         CompositionTarget.Rendering += OnFrame;
     }
 
+    /// <summary>Keeps a dragged hang point inside the window so the ornament is never clipped.</summary>
+    internal Vec2 ClampToWindow(Vec2 hangTarget)
+    {
+        var half = Ring.DesiredSize.Width / 2;
+        var x = Math.Clamp(hangTarget.X, half, Math.Max(half, Root.Width - half));
+        var y = Math.Clamp(hangTarget.Y, 0, Math.Max(0, Root.Height - Ring.DesiredSize.Height));
+        return new Vec2(x, y);
+    }
+
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         _hwnd = new WindowInteropHelper(this).Handle;
@@ -82,10 +94,11 @@ public partial class WidgetWindow : Window
         if (_hwnd == IntPtr.Zero) return;
 
         var rope = _placement.RopeLength;
-        var size = new Size(2.5 * rope + OrnamentRoom * _settings.OrnamentScale, 1.4 * rope + OrnamentRoom * _settings.OrnamentScale);
-        var rect = Core.Screens.Placement.WindowRect(_placement, size.Width, size.Height);
+        var room = OrnamentRoom * _settings.OrnamentScale;
+        var rect = Core.Screens.Placement.WindowRect(_placement, 2.5 * rope + room, 1.4 * rope + room);
         SetWindowPos(_hwnd, HWND_TOPMOST, (int)Math.Round(rect.Left), (int)Math.Round(rect.Top),
             (int)Math.Round(rect.Width), (int)Math.Round(rect.Height), SWP_NOACTIVATE);
+        WindowRectDevice = rect;
 
         var scale = _placement.Monitor.Scale;
         Root.Width = rect.Width / scale;
@@ -121,40 +134,5 @@ public partial class WidgetWindow : Window
         Canvas.SetLeft(Ring, hang.X - width / 2);
         Canvas.SetTop(Ring, hang.Y);
         Ring.RenderTransform = new RotateTransform(_sim.OrnamentAngle * 180 / Math.PI, width / 2, 0);
-    }
-
-    private void OnOrnamentDown(object sender, MouseButtonEventArgs e)
-    {
-        var p = e.GetPosition(Root);
-        _grabOffset = new Vec2(p.X, p.Y) - _sim.OrnamentPosition;
-        Ring.CaptureMouse();
-        _sim.Grab(ClampToWindow(new Vec2(p.X, p.Y) - _grabOffset));
-        Wake();
-        e.Handled = true;
-    }
-
-    private void OnOrnamentMove(object sender, MouseEventArgs e)
-    {
-        if (!Ring.IsMouseCaptured) return;
-        var p = e.GetPosition(Root);
-        _sim.Grab(ClampToWindow(new Vec2(p.X, p.Y) - _grabOffset));
-        Wake();
-    }
-
-    private void OnOrnamentUp(object sender, MouseButtonEventArgs e)
-    {
-        if (!Ring.IsMouseCaptured) return;
-        Ring.ReleaseMouseCapture();
-        _sim.Release();
-        Wake();
-    }
-
-    /// <summary>Keeps the dragged ornament inside the window so it is never clipped.</summary>
-    private Vec2 ClampToWindow(Vec2 hangTarget)
-    {
-        var half = Ring.DesiredSize.Width / 2;
-        var x = Math.Clamp(hangTarget.X, half, Math.Max(half, Root.Width - half));
-        var y = Math.Clamp(hangTarget.Y, 0, Math.Max(0, Root.Height - Ring.DesiredSize.Height));
-        return new Vec2(x, y);
     }
 }
