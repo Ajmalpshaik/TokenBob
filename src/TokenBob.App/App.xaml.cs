@@ -460,10 +460,11 @@ public partial class App : Application
 
     private void OnPullRefresh()
     {
-        if (_poller?.RefreshNow() != true || _widget is null) return;
-        _log.Info("Pull to refresh");
+        if (_widget is null) return;
+        // The lamp-chain click always plays; the refresh itself is what the 30 s cooldown limits.
         _widget.Sim.ApplyImpulse(new Vec2(0, -600));
         _widget.Wake();
+        if (_poller?.RefreshNow() == true) _log.Info("Pull to refresh");
     }
 
     private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)

@@ -229,6 +229,43 @@ public class UsagePollerTests
     }
 
     [Fact]
+    public void Shortening_the_interval_mid_wait_fetches_at_the_new_time()
+    {
+        var provider = new QueueProvider();
+        using var poller = new UsagePoller(provider, _time, Five);
+        poller.Start();
+        WaitForWait(poller, 1);
+        _time.Advance(TimeSpan.FromSeconds(30));
+
+        poller.Interval = TimeSpan.FromMinutes(1);   // counted from the last fetch: due in 30 s, not 4½ min
+        WaitForWait(poller, 2);
+        _time.Advance(TimeSpan.FromSeconds(29));
+        Thread.Sleep(20);
+        Assert.Equal(1, provider.Calls);
+        _time.Advance(TimeSpan.FromSeconds(1));
+
+        Eventually(() => provider.Calls == 2);
+    }
+
+    [Fact]
+    public void Lengthening_the_interval_mid_wait_postpones_the_fetch()
+    {
+        var provider = new QueueProvider();
+        using var poller = new UsagePoller(provider, _time, TimeSpan.FromMinutes(1));
+        poller.Start();
+        WaitForWait(poller, 1);
+
+        poller.Interval = Five;
+        WaitForWait(poller, 2);
+        _time.Advance(TimeSpan.FromMinutes(2));
+        Thread.Sleep(20);
+        Assert.Equal(1, provider.Calls);
+        _time.Advance(TimeSpan.FromMinutes(3));
+
+        Eventually(() => provider.Calls == 2);
+    }
+
+    [Fact]
     public void Changing_interval_applies_to_next_wait()
     {
         var provider = new QueueProvider();

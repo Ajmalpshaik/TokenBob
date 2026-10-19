@@ -22,7 +22,8 @@ jobs:
 
       - name: Publish TokenBob.exe
         shell: pwsh
-        run: ./build/publish.ps1
+        # The tag (v0.2.0) is the version the exe reports.
+        run: ./build/publish.ps1 -Version ('${{ github.ref_name }}'.TrimStart('v'))
 
       - name: Create GitHub release
         shell: pwsh

@@ -28,6 +28,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - A read-only or locked logs folder no longer stops usage polling.
 - Quitting during a fetch no longer logs a bogus "Usage polling stopped" error.
 - "resets 24h 0m" is now shown as the weekday; unknown values in settings.json fall back to defaults.
+- Changing the refresh interval applies at once instead of after the wait already in progress.
+- A hard pull always plays the lamp-chain click, even within the 30 s refresh cooldown.
+- Releases are stamped with the tag's version instead of always reporting 0.1.0.
 
 ## [0.1.0] - 2026-10-14
 

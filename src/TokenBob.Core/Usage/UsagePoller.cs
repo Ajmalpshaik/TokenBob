@@ -30,6 +30,7 @@ public sealed class UsagePoller : IDisposable
     private bool _backingOff;
     private int _offlineStreak;
     private bool _forcePending;
+    private bool _refreshPending;
     private DateTimeOffset? _lastManualRefresh;
     private int _waitsStarted;
     private bool _started;
@@ -51,13 +52,21 @@ public sealed class UsagePoller : IDisposable
     /// <summary>When the latest fetch started (to spot a timer that missed its slot, e.g. in sleep).</summary>
     public DateTimeOffset? LastAttemptAt { get; private set; }
 
+    /// <summary>
+    /// Minutes between fetches. Changing it applies at once: the wait in progress is replaced
+    /// by one of the new length, measured from the last fetch.
+    /// </summary>
     public TimeSpan Interval
     {
         get => _interval;
         set
         {
-            _interval = value;
-            if (!_backingOff && _offlineStreak == 0) _currentDelay = value;
+            lock (_gate)
+            {
+                _interval = value;
+                if (!_backingOff && _offlineStreak == 0) _currentDelay = value;
+                _wake.TrySetResult();   // the wait in progress ends and starts over with the new length
+            }
         }
     }
 
@@ -92,6 +101,7 @@ public sealed class UsagePoller : IDisposable
             if (!ignoreCooldown && _lastManualRefresh is { } last && now - last < ManualCooldown) return false;
             _lastManualRefresh = now;
             if (ignoreCooldown) _forcePending = true;
+            _refreshPending = true;
             _wake.TrySetResult();
         }
         return true;
@@ -115,36 +125,55 @@ public sealed class UsagePoller : IDisposable
             lock (_gate)
             {
                 // A plain refresh asked for during that fetch is satisfied by it; a forced one
-                // (sign-in or sign-out finished meanwhile) needs a fresh fetch.
+                // (sign-in or sign-out finished meanwhile) needs a fresh fetch. A new interval
+                // is simply used by the wait that starts now.
                 fetchAgain = _wake.Task.IsCompleted && _forcePending;
                 if (_wake.Task.IsCompleted) _wake = NewSignal();
                 _forcePending = false;
+                _refreshPending = false;
                 signal = _wake;
             }
-            if (fetchAgain || await WaitAsync(signal)) continue;
+            if (fetchAgain) continue;
+
+            var fromLastFetch = false;
+            while (await WaitAsync(signal, fromLastFetch) == WaitOutcome.NewInterval)
+            {
+                // The interval changed mid-wait: wait again with the new one, counted from the last fetch.
+                lock (_gate) signal = _wake;
+                fromLastFetch = true;
+            }
             if (_stop.IsCancellationRequested) return;
         }
     }
 
-    /// <summary>Waits for the timer or a manual refresh. Returns true when woken early.</summary>
-    private async Task<bool> WaitAsync(TaskCompletionSource signal)
+    private enum WaitOutcome { Timer, Refresh, NewInterval }
+
+    /// <summary>Waits for the timer, a manual refresh, or a change of interval.</summary>
+    private async Task<WaitOutcome> WaitAsync(TaskCompletionSource signal, bool fromLastFetch)
     {
+        var wait = _currentDelay;
+        if (fromLastFetch && LastAttemptAt is { } last)
+        {
+            var elapsed = _time.GetUtcNow() - last;
+            wait = elapsed >= wait ? TimeSpan.Zero : wait - elapsed;
+        }
+
         using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
-        var delay = Task.Delay(_currentDelay, _time, delayCts.Token);
+        var delay = Task.Delay(wait, _time, delayCts.Token);
         Interlocked.Increment(ref _waitsStarted);
 
         var finished = await Task.WhenAny(delay, signal.Task);
         delayCts.Cancel();
-        if (finished == signal.Task)
+        if (finished != signal.Task) return WaitOutcome.Timer;
+
+        lock (_gate)
         {
-            lock (_gate)
-            {
-                if (ReferenceEquals(_wake, signal)) _wake = NewSignal();
-                _forcePending = false;
-            }
-            return true;
+            if (ReferenceEquals(_wake, signal)) _wake = NewSignal();
+            var refresh = _refreshPending;
+            _refreshPending = false;
+            _forcePending = false;
+            return refresh ? WaitOutcome.Refresh : WaitOutcome.NewInterval;
         }
-        return false;
     }
 
     private async Task FetchOnceAsync()
