@@ -11,7 +11,7 @@
         <Setter Property="Typography.Capitals" Value="AllSmallCaps" />
     </Style>
 
-    <Style x:Key="Ui.Card" TargetType="Border">
+    <Style x:Key="Ui.Panel" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Ui.Card}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Ui.CardEdge}" />
         <Setter Property="BorderThickness" Value="1" />

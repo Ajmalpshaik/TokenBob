@@ -21,7 +21,7 @@
             </StackPanel>
         </DockPanel>
 
-        <Border Style="{StaticResource Ui.Card}" Padding="16,12" Margin="0,20,0,0">
+        <Border Style="{StaticResource Ui.Panel}" Padding="16,12" Margin="0,20,0,0">
             <StackPanel>
                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Ui.Text}" LineHeight="20">
                     Installs for you only — no admin password needed. You'll find it in the Start menu,

@@ -28,7 +28,7 @@
             <StackPanel Margin="24,10,24,24">
 
                 <!-- Live preview -->
-                <Border Style="{StaticResource Ui.Card}" Padding="0" Background="{DynamicResource Ui.Stage}">
+                <Border Style="{StaticResource Ui.Panel}" Padding="0" Background="{DynamicResource Ui.Stage}">
                     <StackPanel>
                         <settings:OrnamentPreview x:Name="Preview" Height="200" Background="Transparent" />
                         <Border Background="{DynamicResource Ui.Card}" CornerRadius="0,0,12,12" Padding="16,10">
@@ -47,7 +47,7 @@
 
                 <!-- Appearance -->
                 <TextBlock Style="{StaticResource Ui.Section}" Text="Appearance" />
-                <Border Style="{StaticResource Ui.Card}">
+                <Border Style="{StaticResource Ui.Panel}">
                     <StackPanel>
                         <DockPanel Style="{StaticResource Ui.Row}">
                             <Border Style="{StaticResource Ui.SegmentGroup}">
@@ -133,7 +133,7 @@
 
                 <!-- Motion and effects -->
                 <TextBlock Style="{StaticResource Ui.Section}" Text="Motion and effects" />
-                <Border Style="{StaticResource Ui.Card}">
+                <Border Style="{StaticResource Ui.Panel}">
                     <StackPanel>
                         <DockPanel Margin="0,10,0,0">
                             <TextBlock DockPanel.Dock="Right" Text="Bouncy" Style="{StaticResource Ui.Value}" />
@@ -175,7 +175,7 @@
 
                 <!-- Data -->
                 <TextBlock Style="{StaticResource Ui.Section}" Text="Data" />
-                <Border Style="{StaticResource Ui.Card}">
+                <Border Style="{StaticResource Ui.Panel}">
                     <StackPanel>
                         <DockPanel Style="{StaticResource Ui.Row}">
                             <Border Style="{StaticResource Ui.SegmentGroup}">
@@ -197,7 +197,7 @@
 
                 <!-- Alerts -->
                 <TextBlock Style="{StaticResource Ui.Section}" Text="Alerts" />
-                <Border Style="{StaticResource Ui.Card}">
+                <Border Style="{StaticResource Ui.Panel}">
                     <CheckBox x:Name="Notifications" Style="{StaticResource Ui.Toggle}" Margin="0,10">
                         <StackPanel>
                             <TextBlock Text="Windows notifications" Style="{StaticResource Ui.RowLabel}" />
@@ -208,7 +208,7 @@
 
                 <!-- Behavior -->
                 <TextBlock Style="{StaticResource Ui.Section}" Text="Behavior" />
-                <Border Style="{StaticResource Ui.Card}">
+                <Border Style="{StaticResource Ui.Panel}">
                     <StackPanel>
                         <CheckBox x:Name="StartWithWindows" Style="{StaticResource Ui.Toggle}" Margin="0,10">
                             <TextBlock Text="Start with Windows" Style="{StaticResource Ui.RowLabel}" />
@@ -234,7 +234,7 @@
 
                 <!-- Account -->
                 <TextBlock Style="{StaticResource Ui.Section}" Text="Account" />
-                <Border Style="{StaticResource Ui.Card}">
+                <Border Style="{StaticResource Ui.Panel}">
                     <DockPanel Style="{StaticResource Ui.Row}">
                         <Button x:Name="SignInOut" DockPanel.Dock="Right" Style="{StaticResource Ui.AccentButton}" Content="Sign in" />
                         <StackPanel VerticalAlignment="Center">
@@ -246,7 +246,7 @@
 
                 <!-- About -->
                 <TextBlock Style="{StaticResource Ui.Section}" Text="About" />
-                <Border Style="{StaticResource Ui.Card}">
+                <Border Style="{StaticResource Ui.Panel}">
                     <DockPanel Style="{StaticResource Ui.Row}">
                         <Button x:Name="Quit" DockPanel.Dock="Right" Style="{StaticResource Ui.Button}" Content="Quit TokenBob" />
                         <StackPanel VerticalAlignment="Center">
