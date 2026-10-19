@@ -1,8 +1,15 @@
 name: release
 
+# Runs when a v* tag is pushed, or by hand from the Actions tab ("Run workflow" on main with a
+# version such as 0.2.0): then the release creates the v0.2.0 tag itself on the commit it built.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 0.2.0 (tag v0.2.0 is created on main)'
+        required: true
 
 permissions:
   contents: write
@@ -10,7 +17,19 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      # Tag names and inputs reach scripts only through environment variables, never pasted in.
+      TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
     steps:
+      - name: Check the version
+        shell: pwsh
+        env:
+          REF: ${{ github.ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if ($env:TAG -notmatch '^v\d+\.\d+\.\d+$') { throw "Not a version tag: '$env:TAG' (expected v1.2.3)" }
+          if ($env:EVENT -eq 'workflow_dispatch' -and $env:REF -ne 'refs/heads/main') { throw 'Releases are made from main only.' }
+
       - uses: actions/checkout@v5
 
       - uses: actions/setup-dotnet@v5
@@ -20,12 +39,9 @@ jobs:
       - name: Test
         run: dotnet test -c Release
 
-      # The tag name goes through an environment variable, never straight into the script.
+      # The tag (v0.2.0) is the version the exe reports.
       - name: Publish TokenBob.exe
         shell: pwsh
-        env:
-          TAG: ${{ github.ref_name }}
-        # The tag (v0.2.0) is the version the exe reports.
         run: ./build/publish.ps1 -Version $env:TAG.TrimStart('v')
 
       - name: Write checksum
@@ -35,9 +51,35 @@ jobs:
           "$hash  TokenBob.exe" | Set-Content -NoNewline publish/TokenBob.exe.sha256
           Get-Content publish/TokenBob.exe.sha256
 
+      # Release notes: this version's CHANGELOG section, then how to install and check the download.
+      - name: Write release notes
+        shell: pwsh
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          $changelog = Get-Content CHANGELOG.md -Raw
+          $pattern = '(?ms)^## \[' + [regex]::Escape($version) + '\][^\n]*\n(.*?)(?=^## \[|^\[[^\]]+\]: |\z)'
+          $section = if ($changelog -match $pattern) { $Matches[1].Trim() } else { 'See CHANGELOG.md.' }
+          $hash = (Get-Content publish/TokenBob.exe.sha256).Split(' ')[0]
+          @"
+          $section
+
+          ## Install or update
+
+          1. Download **TokenBob.exe** below.
+          2. Double-click it and click **Install** (or **Update** if TokenBob is already installed). No admin password needed.
+          3. "Windows protected your PC"? Click **More info → Run anyway** once (the exe is not code-signed yet).
+
+          Needs Windows 10 or 11 (64-bit) and the Microsoft Edge WebView2 Runtime (part of Windows 11).
+
+          **SHA-256** of TokenBob.exe: ``$hash``
+          Check it with ``certutil -hashfile TokenBob.exe SHA256``.
+          "@ | Set-Content -Encoding utf8 publish/notes.md
+          Get-Content publish/notes.md
+
       - name: Create GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: gh release create $env:TAG publish/TokenBob.exe publish/TokenBob.exe.sha256 --title "TokenBob $env:TAG" --generate-notes
+          SHA: ${{ github.sha }}
+        # --target only matters when the tag doesn't exist yet (a run from the Actions tab).
+        run: gh release create $env:TAG publish/TokenBob.exe publish/TokenBob.exe.sha256 --target $env:SHA --title "TokenBob $env:TAG" --notes-file publish/notes.md --latest
