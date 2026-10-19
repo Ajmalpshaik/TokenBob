@@ -14,6 +14,8 @@
         <widget:RopeVisual x:Name="Rope" IsHitTestVisible="False" />
         <!-- Holds the current ornament style; input and hover are wired to the host. -->
         <Border x:Name="Host" Cursor="Hand" />
+        <!-- The reset blast paints over the whole window, above the ornament. -->
+        <widget:ResetBlast x:Name="Blast" IsHitTestVisible="False" />
         <Popup x:Name="Hover" PlacementTarget="{Binding ElementName=Host}" Placement="Left"
                AllowsTransparency="True" StaysOpen="True" Focusable="False" PopupAnimation="Fade">
             <widget:HoverCard x:Name="HoverContent" />

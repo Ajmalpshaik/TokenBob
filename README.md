@@ -40,7 +40,7 @@ Hover over it for exact numbers, reset times and when it last updated.
 
 | Do this | It does |
 |---|---|
-| Drag and fling | Swings, rotates and springs back |
+| Drag and fling | Swings, rotates and springs back; the rope can be pulled to 140% of its length |
 | Pull down hard and let go | Lamp-chain "click" — refreshes usage now |
 | **Ctrl + click** | Opens Settings |
 | **Shift + drag** | Moves the hanging point (left/right, even onto another monitor) and the rope length (up/down) |
@@ -53,15 +53,22 @@ widget — for Settings, Hide/Show, Refresh now, Sign in/out and Quit.
 
 ## Settings
 
-- **Look:** ring or hanging tag; twisted cord or bead chain; rope length; ornament size
-- **Motion:** calm ↔ bouncy swing; sway in the wind
+Settings opens with a live preview of your look, and follows the theme you pick.
+
+- **Appearance:** theme (follow Windows, light or dark, for the widget and every window); ring or
+  hanging tag; the number shown in the ring (5-hour or weekly); twisted cord or bead chain; cord
+  colour (gold, graphite, crimson, ivory); rope length; ornament size; opacity
+- **Motion and effects:** calm ↔ bouncy swing; sway in the wind; blast on reset; shiver at 90%;
+  details card on hover
 - **Data:** refresh every 1, 2, 5, 10 or 15 minutes; refresh now
 - **Alerts:** Windows notifications at 80% and 95% (once per limit window)
-- **Behavior:** start with Windows; hide while a fullscreen app is running
+- **Behavior:** start with Windows; hide while a fullscreen app is running; reset the hanging point
 - **Account:** sign in / sign out
 
-It also shivers at 90% of the 5-hour limit and does a happy bounce when that limit resets.
-Settings are saved in `%AppData%\TokenBob\settings.json`.
+It also shivers at 90% of the 5-hour limit, and when that limit resets the old ornament **blasts**
+apart with firecrackers and confetti and a fresh one pops in on the rope (there is a "Play reset
+animation" button in Settings to see it any time). Settings are saved in
+`%AppData%\TokenBob\settings.json`.
 
 ## How it gets your usage
 

@@ -13,6 +13,13 @@ public readonly record struct Vec2(double X, double Y)
         return len > 1e-12 ? new Vec2(X / len, Y / len) : Zero;
     }
 
+    /// <summary>Rotated clockwise on screen by <paramref name="radians"/> (the same sense as WPF's RotateTransform).</summary>
+    public Vec2 Rotated(double radians)
+    {
+        var (sin, cos) = Math.SinCos(radians);
+        return new Vec2(X * cos - Y * sin, X * sin + Y * cos);
+    }
+
     public static Vec2 operator +(Vec2 a, Vec2 b) => new(a.X + b.X, a.Y + b.Y);
     public static Vec2 operator -(Vec2 a, Vec2 b) => new(a.X - b.X, a.Y - b.Y);
     public static Vec2 operator -(Vec2 a) => new(-a.X, -a.Y);

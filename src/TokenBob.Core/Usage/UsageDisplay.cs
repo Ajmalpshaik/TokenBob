@@ -84,10 +84,10 @@ public static class UsageDisplay
     {
         var left = reset - now;
         if (left <= TimeSpan.Zero) return "resets soon";
-        if (left >= TimeSpan.FromHours(24))
+        var totalMinutes = (int)Math.Ceiling(left.TotalMinutes);
+        if (totalMinutes >= 24 * 60)
             return "resets " + TimeZoneInfo.ConvertTime(reset, zone).ToString("ddd", culture);
 
-        var totalMinutes = (int)Math.Ceiling(left.TotalMinutes);
         var hours = totalMinutes / 60;
         var minutes = totalMinutes % 60;
         return hours == 0 ? $"resets {minutes}m" : $"resets {hours}h {minutes}m";

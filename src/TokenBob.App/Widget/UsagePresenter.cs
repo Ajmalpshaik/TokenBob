@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Media.Animation;
 using TokenBob.App.Widget.Styles;
 using TokenBob.Core.Alerts;
+using TokenBob.Core.Config;
 using TokenBob.Core.Usage;
 
 namespace TokenBob.App.Widget;
@@ -10,11 +11,13 @@ namespace TokenBob.App.Widget;
 internal sealed class UsagePresenter
 {
     private readonly WidgetWindow _window;
+    private readonly WidgetSettings _settings;
     private bool _pulsing;
 
-    public UsagePresenter(WidgetWindow window)
+    public UsagePresenter(WidgetWindow window, WidgetSettings settings)
     {
         _window = window;
+        _settings = settings;
         window.OrnamentReplaced += () =>
         {
             if (Current is { } model) Show(model);
@@ -27,7 +30,7 @@ internal sealed class UsagePresenter
     {
         Current = model;
         var ornament = _window.Ornament;
-        Fill(ornament, model);
+        Fill(ornament, model, _settings.Center);
 
         var worst = (ColorLevel)Math.Max((int)ornament.FiveHourLevel, (int)ornament.WeeklyLevel);
         _window.Card.Show(model.HoverLines, Palette.ForLevel(worst, model.IsGrey));
@@ -36,9 +39,9 @@ internal sealed class UsagePresenter
     }
 
     /// <summary>Copies a display model onto any ornament style.</summary>
-    public static void Fill(OrnamentBase ornament, UsageDisplayModel model)
+    public static void Fill(OrnamentBase ornament, UsageDisplayModel model, CenterReadout center = CenterReadout.FiveHour)
     {
-        ornament.CenterText = model.CenterText;
+        ornament.CenterText = center == CenterReadout.Weekly && model.Weekly is { } weekly ? weekly.PercentText : model.CenterText;
         ornament.HasData = model.FiveHour is not null;
         ornament.FiveHourText = model.FiveHour?.PercentText ?? "";
         ornament.WeeklyText = model.Weekly?.PercentText ?? "";

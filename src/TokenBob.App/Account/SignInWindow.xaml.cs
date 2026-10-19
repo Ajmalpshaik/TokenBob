@@ -18,6 +18,7 @@ public partial class SignInWindow : Window
     public SignInWindow(ILog log)
     {
         InitializeComponent();
+        Ui.Theme.Attach(this);
         _log = log;
         Loaded += async (_, _) => await StartAsync();
     }

@@ -23,3 +23,15 @@ jobs:
 
       - name: Test
         run: dotnet test -c Release --no-build --verbosity normal
+
+      - name: Publish TokenBob.exe
+        shell: pwsh
+        run: ./build/publish.ps1
+
+      # Download it from this run's Summary page to try a build before it is released.
+      - name: Upload TokenBob.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: TokenBob
+          path: publish/TokenBob.exe
+          if-no-files-found: error

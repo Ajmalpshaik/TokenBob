@@ -79,4 +79,47 @@ public class GestureRecognizerTests
         g.Move(new Vec2(40, 10), Ms(150));
         Assert.Equal([GestureEventKind.DragEnd], Kinds(g.Up(new Vec2(40, 10), Ms(200))));
     }
+    [Fact]
+    public void Cancel_ends_an_open_drag_and_a_later_click_is_a_plain_click()
+    {
+        var g = new GestureRecognizer(DoubleClick);
+        g.Down(new Vec2(10, 10), Modifiers.None, Ms(0));
+        g.Move(new Vec2(30, 10), Ms(10));
+
+        Assert.Equal([GestureEventKind.DragEnd], Kinds(g.Cancel(new Vec2(30, 10))));
+        Assert.Empty(g.Cancel(new Vec2(30, 10)));
+        Assert.Empty(g.Up(new Vec2(30, 10), Ms(20)));
+
+        g.Down(new Vec2(10, 10), Modifiers.None, Ms(100));
+        Assert.Empty(g.Up(new Vec2(10, 10), Ms(120)));
+    }
+
+    [Fact]
+    public void Cancel_ends_an_open_edit()
+    {
+        var g = new GestureRecognizer(DoubleClick);
+        g.Down(new Vec2(10, 10), Modifiers.Shift, Ms(0));
+        g.Move(new Vec2(30, 10), Ms(10));
+        Assert.Equal([GestureEventKind.EditEnd], Kinds(g.Cancel(new Vec2(30, 10))));
+    }
+
+    [Fact]
+    public void A_new_press_during_an_unreleased_drag_ends_the_drag_first()
+    {
+        var g = new GestureRecognizer(DoubleClick);
+        g.Down(new Vec2(10, 10), Modifiers.None, Ms(0));
+        g.Move(new Vec2(30, 10), Ms(10));
+
+        Assert.Equal([GestureEventKind.DragEnd], Kinds(g.Down(new Vec2(50, 50), Modifiers.None, Ms(500))));
+        Assert.Equal([GestureEventKind.DragStart, GestureEventKind.DragMove], Kinds(g.Move(new Vec2(60, 50), Ms(510))));
+    }
+
+    [Fact]
+    public void Ctrl_press_during_an_unreleased_edit_ends_the_edit_then_opens_settings()
+    {
+        var g = new GestureRecognizer(DoubleClick);
+        g.Down(new Vec2(10, 10), Modifiers.Shift, Ms(0));
+        g.Move(new Vec2(30, 10), Ms(10));
+        Assert.Equal([GestureEventKind.EditEnd, GestureEventKind.OpenSettings], Kinds(g.Down(new Vec2(30, 10), Modifiers.Ctrl, Ms(500))));
+    }
 }

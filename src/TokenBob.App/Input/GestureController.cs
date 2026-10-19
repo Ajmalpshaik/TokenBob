@@ -36,7 +36,9 @@ internal sealed class GestureController
         ornament.MouseLeftButtonDown += OnDown;
         ornament.MouseMove += OnMove;
         ornament.MouseLeftButtonUp += OnUp;
-        ornament.LostMouseCapture += (_, _) => _busy = false;
+        // Capture can vanish mid-drag (lock screen, a prompt, the sign-in window): end the gesture
+        // where it was, so the rope is never left grabbed or frozen.
+        ornament.LostMouseCapture += (_, e) => Handle(_recognizer.Cancel(Position(e)));
 
         _windTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(1000.0 / 30), DispatcherPriority.Input, OnWindTick, window.Dispatcher);
         _windTimer.Start();
@@ -100,7 +102,7 @@ internal sealed class GestureController
                 case GestureEventKind.DragStart:
                 case GestureEventKind.DragMove:
                     _busy = true;
-                    _window.Sim.Grab(_window.ClampToWindow(g.Position - _grabOffset));
+                    _window.Sim.Grab(_window.ClampToReach(g.Position - _grabOffset));
                     _window.Wake();
                     break;
                 case GestureEventKind.DragEnd:

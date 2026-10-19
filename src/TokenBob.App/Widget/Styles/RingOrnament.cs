@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using TokenBob.Core.Physics;
 
 namespace TokenBob.App.Widget.Styles;
 
@@ -34,6 +35,25 @@ internal sealed class RingOrnament : OrnamentBase
 
         var text = Text(CenterText, 14 * s, IsGrey ? Palette.Grey : Palette.Text, semiBold: true);
         dc.DrawText(text, new Point(center.X - text.Width / 2, center.Y - text.Height / 2));
+    }
+
+    public override IReadOnlyList<BurstPiece> Shatter()
+    {
+        var s = Scale;
+        var pieces = new List<BurstPiece>();
+        RingPieces(pieces, 33 * s, 6 * s, WeeklyPercent, WeeklyPaint, count: 6);
+        RingPieces(pieces, 24 * s, 6 * s, FiveHourPercent, FiveHourPaint, count: 8);
+
+        // The card itself: a dozen rounded shards scattered over the disc.
+        var random = Random.Shared;
+        for (var i = 0; i < 12; i++)
+        {
+            var (sin, cos) = Math.SinCos(random.NextDouble() * Math.Tau);
+            var distance = random.NextDouble() * 34 * s;
+            pieces.Add(new BurstShard(new Vec2(cos * distance, sin * distance),
+                (9 + random.NextDouble() * 11) * s, (8 + random.NextDouble() * 8) * s, 3 * s, BurstPaint.Card));
+        }
+        return pieces;
     }
 
     private static void DrawRing(DrawingContext dc, Point center, double radius, double thickness, double percent, Brush color)

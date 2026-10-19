@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 using TokenBob.Core.Alerts;
+using TokenBob.Core.Physics;
 
 namespace TokenBob.App.Widget.Styles;
 
@@ -42,7 +43,38 @@ internal abstract class OrnamentBase : FrameworkElement
     /// <summary>Distance from the hang point to the middle of the ornament (for wind and grabbing).</summary>
     public abstract double CenterOffset { get; }
 
+    /// <summary>
+    /// The ornament cut into the pieces that fly apart on a limit reset, each placed by its
+    /// offset from the ornament's centre, so the blast starts from exactly what was drawn.
+    /// </summary>
+    public abstract IReadOnlyList<BurstPiece> Shatter();
+
     protected const double ShadowOffset = 3;
+
+    protected BurstPaint FiveHourPaint => Palette.PaintFor(FiveHourLevel, IsGrey);
+
+    protected BurstPaint WeeklyPaint => Palette.PaintFor(WeeklyLevel, IsGrey);
+
+    /// <summary>A ring split into <paramref name="count"/> arcs; the used share keeps its colour, the rest is track.</summary>
+    protected static void RingPieces(List<BurstPiece> pieces, double radius, double thickness, double percent, BurstPaint paint, int count)
+    {
+        var used = Math.Clamp(percent, 0, 100) / 100 * 360;
+        var span = 360.0 / count;
+        for (var i = 0; i < count; i++)
+        {
+            var mid = (i + 0.5) * span;
+            var (sin, cos) = Math.SinCos(mid * Math.PI / 180);
+            pieces.Add(new BurstArc(new Vec2(radius * sin, -radius * cos), radius, span, thickness, mid < used ? paint : BurstPaint.Track));
+        }
+    }
+
+    /// <summary>A bar split into <paramref name="count"/> pieces across its filled width.</summary>
+    protected static void BarPieces(List<BurstPiece> pieces, double left, double centerY, double filledWidth, double height, BurstPaint paint, int count)
+    {
+        var width = filledWidth / count;
+        for (var i = 0; i < count; i++)
+            pieces.Add(new BurstShard(new Vec2(left + width * (i + 0.5), centerY), Math.Max(2, width - 1), height, height / 2, paint));
+    }
 
     protected FormattedText Text(string text, double size, Brush brush, bool semiBold = false) =>
         new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,

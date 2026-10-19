@@ -108,6 +108,7 @@ public sealed class UsagePoller : IDisposable
         while (!_stop.IsCancellationRequested)
         {
             await FetchOnceAsync();
+            if (_stop.IsCancellationRequested) return;   // disposed during the fetch: its token is gone
 
             TaskCompletionSource signal;
             bool fetchAgain;

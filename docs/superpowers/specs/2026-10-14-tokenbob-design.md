@@ -88,11 +88,16 @@ the anchor stays at least 40 px from each monitor edge.
 - **Windows notifications** at 80% and 95% of the 5-hour limit and of the weekly
   limit. Each threshold fires once per limit window and does not repeat until
   that limit resets.
-- **Reset bounce**: when a fresh fetch shows the 5-hour window has reset (its
-  `resets_at` moved forward and utilization dropped), the ornament does a happy
-  bounce.
-- Notifications can be turned off in Settings. Color, shiver, and bounce are
-  always on.
+- **Reset blast**: when a fresh fetch shows the 5-hour window has reset (its
+  `resets_at` moved forward and utilization dropped), the old ornament squeezes
+  and glows (180 ms), blasts into its own pieces (ring arcs or card shards and
+  bars) with a shock ring, sparks and five firecrackers that pop around it with
+  confetti, the rope jumps, and at 520 ms a fresh ornament springs in from the
+  rope end with the new numbers and a soft glow. The clock and particles live
+  in `Core/Physics` (`ResetTimeline`, `Burst`); the app only paints them.
+  Can be switched to a plain bounce in Settings.
+- Notifications, the blast, shiver and the hover card can be turned off in
+  Settings. Color levels are always on.
 
 ### 4.6 Auto-hide in fullscreen
 
@@ -113,11 +118,12 @@ to the widget and save automatically.
 
 | Section | Controls |
 |---|---|
-| Look | Ornament style (A / B), rope style (cord / bead chain), rope length slider, ornament size slider (80–140%) |
-| Motion | Swing strength slider (bounciness / damping), wind on/off |
+| Preview | Live picture of the widget with the current look and real numbers; "Play reset animation" |
+| Appearance | Theme (follow Windows / light / dark — widget and every window), ornament style (A / B), number in the ring (5-hour / weekly), rope style (cord / bead chain), cord colour (gold / graphite / crimson / ivory), rope length slider, ornament size slider (80–140%), opacity slider (40–100%) |
+| Motion and effects | Swing strength slider (bounciness / damping), wind on/off, reset blast on/off, shiver on/off, hover card on/off |
 | Data | Refresh interval (1, 2, 5, 10, 15 min; default 5), Refresh now button, last update time and status |
 | Alerts | Windows notifications on/off |
-| Behavior | Start with Windows on/off, auto-hide in fullscreen on/off |
+| Behavior | Start with Windows on/off, auto-hide in fullscreen on/off, "Reset position" for the hanging point |
 | Account | Signed-in status, Sign in / Sign out |
 | About | Version, link to GitHub repo, Quit |
 

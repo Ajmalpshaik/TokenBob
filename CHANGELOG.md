@@ -6,6 +6,29 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Limit reset blast: when the 5-hour limit resets, the old ornament squeezes, glows and bursts into
+  its own pieces with a shock ring, firecrackers, sparks and confetti; a fresh ornament springs in
+  with the new numbers. A "Play reset animation" button in Settings shows it any time.
+- Settings: live preview of the widget; theme (follow Windows / light / dark) for the widget and
+  every window; number shown in the ring (5-hour or weekly); cord colour; opacity; toggles for the
+  reset blast, shiver and the hover card; "Reset position" for the hanging point.
+- A themed look for Settings, Install and Sign in (dark title bars included), the tray menu and
+  the widget's own menu.
+
+### Changed
+- The widget window now covers everything the rope can reach, so the ornament is never cut off
+  at an invisible edge; dragging feels like a rope pulled taut instead of hitting a wall.
+- Lower memory: the GC is set to conserve memory, the working set is trimmed a few seconds after
+  the widget stops moving, and the render loop no longer creates garbage every frame.
+
+### Fixed
+- Losing mouse capture mid-drag (lock screen, a prompt) no longer leaves the ornament grabbed or
+  frozen with the render loop running.
+- A read-only or locked logs folder no longer stops usage polling.
+- Quitting during a fetch no longer logs a bogus "Usage polling stopped" error.
+- "resets 24h 0m" is now shown as the weekday; unknown values in settings.json fall back to defaults.
+
 ## [0.1.0] - 2026-10-14
 
 ### Added
