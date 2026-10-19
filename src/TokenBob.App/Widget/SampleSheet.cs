@@ -84,9 +84,9 @@ internal static class SampleSheet
         UsagePresenter.Fill(ornament, model);
         ornament.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var hang = sim.OrnamentPosition;
-        Canvas.SetLeft(ornament, hang.X - ornament.DesiredSize.Width / 2);
+        Canvas.SetLeft(ornament, hang.X - ornament.HangX);
         Canvas.SetTop(ornament, hang.Y);
-        ornament.RenderTransform = new RotateTransform(sim.OrnamentAngle * 180 / Math.PI, ornament.DesiredSize.Width / 2, 0);
+        ornament.RenderTransform = new RotateTransform(sim.OrnamentAngle * 180 / Math.PI, ornament.HangX, 0);
         cell.Children.Add(ornament);
 
         cell.Children.Add(new TextBlock

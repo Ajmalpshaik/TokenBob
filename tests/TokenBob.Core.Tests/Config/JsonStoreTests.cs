@@ -14,12 +14,19 @@ public class JsonStoreTests
         var store = new JsonStore<WidgetSettings>(dir.File("settings.json"), NullLog.Instance);
         var saved = new WidgetSettings
         {
+            Theme = AppTheme.Dark,
             Style = OrnamentStyle.Tag,
             Rope = RopeStyle.BeadChain,
+            Cord = CordColor.Crimson,
+            Center = CenterReadout.Weekly,
             RopeLength = 222,
             OrnamentScale = 1.2,
+            Opacity = 0.7,
             SwingStrength = 0.8,
             Wind = false,
+            HoverCard = false,
+            ResetBlast = false,
+            Shiver = false,
             RefreshMinutes = 10,
             Notifications = false,
             StartWithWindows = true,
@@ -31,8 +38,15 @@ public class JsonStoreTests
         store.Save(saved);
         var loaded = store.Load();
 
+        Assert.Equal(AppTheme.Dark, loaded.Theme);
         Assert.Equal(OrnamentStyle.Tag, loaded.Style);
         Assert.Equal(RopeStyle.BeadChain, loaded.Rope);
+        Assert.Equal(CordColor.Crimson, loaded.Cord);
+        Assert.Equal(CenterReadout.Weekly, loaded.Center);
+        Assert.Equal(0.7, loaded.Opacity);
+        Assert.False(loaded.HoverCard);
+        Assert.False(loaded.ResetBlast);
+        Assert.False(loaded.Shiver);
         Assert.Equal(222, loaded.RopeLength);
         Assert.Equal(1.2, loaded.OrnamentScale);
         Assert.Equal(0.8, loaded.SwingStrength);

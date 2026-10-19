@@ -229,6 +229,72 @@ public class UsagePollerTests
     }
 
     [Fact]
+    public void Shortening_the_interval_mid_wait_fetches_at_the_new_time()
+    {
+        var provider = new QueueProvider();
+        using var poller = new UsagePoller(provider, _time, Five);
+        poller.Start();
+        WaitForWait(poller, 1);
+        _time.Advance(TimeSpan.FromSeconds(30));
+
+        poller.Interval = TimeSpan.FromMinutes(1);   // counted from the last fetch: due in 30 s, not 4½ min
+        WaitForWait(poller, 2);
+        _time.Advance(TimeSpan.FromSeconds(29));
+        Thread.Sleep(20);
+        Assert.Equal(1, provider.Calls);
+        _time.Advance(TimeSpan.FromSeconds(1));
+
+        Eventually(() => provider.Calls == 2);
+    }
+
+    [Fact]
+    public void Lengthening_the_interval_mid_wait_postpones_the_fetch()
+    {
+        var provider = new QueueProvider();
+        using var poller = new UsagePoller(provider, _time, TimeSpan.FromMinutes(1));
+        poller.Start();
+        WaitForWait(poller, 1);
+
+        poller.Interval = Five;
+        WaitForWait(poller, 2);
+        _time.Advance(TimeSpan.FromMinutes(2));
+        Thread.Sleep(20);
+        Assert.Equal(1, provider.Calls);
+        _time.Advance(TimeSpan.FromMinutes(3));
+
+        Eventually(() => provider.Calls == 2);
+    }
+
+    private sealed class BlockingProvider : IUsageProvider
+    {
+        private readonly TaskCompletionSource _started = new();
+
+        public Task Started => _started.Task;
+
+        public async Task<UsageResult> FetchAsync(CancellationToken ct)
+        {
+            _started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);   // only ends when the poller is disposed
+            return UsageResult.Ok(Snapshot(10));
+        }
+    }
+
+    [Fact]
+    public async Task Disposing_during_a_fetch_stops_quietly()
+    {
+        var provider = new BlockingProvider();
+        var log = new TestDoubles.RecordingLog();
+        var poller = new UsagePoller(provider, _time, Five, log);
+        poller.Start();
+        await provider.Started;
+
+        poller.Dispose();
+        await Task.Delay(100);
+
+        Assert.DoesNotContain(log.Messages, m => m.StartsWith("ERROR", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Changing_interval_applies_to_next_wait()
     {
         var provider = new QueueProvider();

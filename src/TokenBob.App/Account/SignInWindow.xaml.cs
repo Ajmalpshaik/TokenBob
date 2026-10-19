@@ -18,6 +18,7 @@ public partial class SignInWindow : Window
     public SignInWindow(ILog log)
     {
         InitializeComponent();
+        Ui.Theme.Attach(this);
         _log = log;
         Loaded += async (_, _) => await StartAsync();
     }
@@ -43,6 +44,14 @@ public partial class SignInWindow : Window
         var core = View.CoreWebView2;
         core.NavigationStarting += OnNavigationStarting;
         core.NewWindowRequested += OnNewWindowRequested;
+        core.DownloadStarting += (_, e) =>
+        {
+            e.Cancel = true;
+            e.Handled = true;
+        };
+        core.Settings.IsGeneralAutofillEnabled = false;      // the profile keeps the session, not what was typed
+        core.Settings.IsPasswordAutosaveEnabled = false;
+        core.Settings.IsReputationCheckingRequired = false;  // addresses are not sent to SmartScreen
         core.NavigationCompleted += async (_, _) => await CheckSignedInAsync();
         // claude.ai changes pages inside the site without a full load, so also check on
         // in-page navigation and every few seconds while the window is open.

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using TokenBob.Core.Physics;
 
 namespace TokenBob.App.Widget.Styles;
 
@@ -16,6 +17,8 @@ internal sealed class HangingTag : OrnamentBase
 
     public override double CenterOffset => (Top + Height0 / 2) * Scale;
 
+    public override double HangX => Width0 * Scale / 2;
+
     protected override Size MeasureOverride(Size availableSize) =>
         new(Width0 * Scale + ShadowOffset, (Top + Height0) * Scale + ShadowOffset);
 
@@ -28,8 +31,9 @@ internal sealed class HangingTag : OrnamentBase
 
         dc.DrawLine(new Pen(Palette.Loop, 1.4), new Point(w / 2, 0), eyelet);
         dc.DrawRoundedRectangle(Palette.Shadow, null, new Rect(card.X + ShadowOffset, card.Y + ShadowOffset, card.Width, card.Height), 12 * s, 12 * s);
-        dc.DrawRoundedRectangle(Palette.Card, new Pen(Palette.Track, 1), card, 12 * s, 12 * s);
-        dc.DrawEllipse(Palette.Track, new Pen(Palette.Grey, 1), eyelet, 2.6 * s, 2.6 * s);
+        dc.DrawRoundedRectangle(Palette.Card, new Pen(Palette.Edge, 1), card, 12 * s, 12 * s);
+        dc.DrawRoundedRectangle(Sheen, null, card, 12 * s, 12 * s);
+        dc.DrawEllipse(Palette.BeadMetal, new Pen(Palette.BeadRim, 0.8), eyelet, 2.6 * s, 2.6 * s);
 
         if (!HasData)
         {
@@ -40,6 +44,39 @@ internal sealed class HangingTag : OrnamentBase
 
         DrawRow(dc, s, card.Y + 15 * s, "5-hour", FiveHourText, FiveHourReset, FiveHourPercent, Palette.ForLevel(FiveHourLevel, IsGrey));
         DrawRow(dc, s, card.Y + 52 * s, "Weekly", WeeklyText, WeeklyReset, WeeklyPercent, Palette.ForLevel(WeeklyLevel, IsGrey));
+    }
+
+    public override IReadOnlyList<BurstPiece> Shatter()
+    {
+        var s = Scale;
+        var w = Width0 * s;
+        var h = Height0 * s;
+        var pieces = new List<BurstPiece>();
+
+        // The card as a 4 × 3 grid of shards, then the two bars on top of them.
+        const int columns = 4, rows = 3;
+        var cellWidth = w / columns;
+        var cellHeight = h / rows;
+        for (var r = 0; r < rows; r++)
+            for (var c = 0; c < columns; c++)
+                pieces.Add(new BurstShard(new Vec2(-w / 2 + (c + 0.5) * cellWidth, -h / 2 + (r + 0.5) * cellHeight),
+                    cellWidth - 2, cellHeight - 2, 4 * s, BurstPaint.Card));
+
+        var left = -w / 2 + Pad * s;
+        var barWidth = (Width0 - 2 * Pad) * s;
+        if (HasData)
+        {
+            BarPieces(pieces, left, (15 + 15 + 2.5 - Height0 / 2) * s, FilledWidth(barWidth, FiveHourPercent, s), 5 * s, FiveHourPaint, 3);
+            BarPieces(pieces, left, (52 + 15 + 2.5 - Height0 / 2) * s, FilledWidth(barWidth, WeeklyPercent, s), 5 * s, WeeklyPaint, 3);
+        }
+        pieces.Add(new BurstShard(new Vec2(0, (7 - Height0 / 2) * s), 5.2 * s, 5.2 * s, 2.6 * s, BurstPaint.Grey));
+        return pieces;
+    }
+
+    private static double FilledWidth(double barWidth, double value, double s)
+    {
+        var share = Math.Clamp(value, 0, 100) / 100;
+        return share > 0 ? Math.Max(5 * s, barWidth * share) : 5 * s;
     }
 
     private void DrawRow(DrawingContext dc, double s, double y, string label, string percent, string reset, double value, Brush color)

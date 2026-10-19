@@ -2,5 +2,26 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnExplicitShutdown">
-    <Application.Resources />
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Ui/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <!-- Light values to start with; Theme.Apply swaps every Ui.* brush for the chosen theme. -->
+            <SolidColorBrush x:Key="Ui.Window" Color="#F6F4EF" />
+            <SolidColorBrush x:Key="Ui.Card" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="Ui.CardEdge" Color="#E4E2DA" />
+            <SolidColorBrush x:Key="Ui.Text" Color="#1F1E1C" />
+            <SolidColorBrush x:Key="Ui.Muted" Color="#6F6D66" />
+            <SolidColorBrush x:Key="Ui.Accent" Color="#BA7517" />
+            <SolidColorBrush x:Key="Ui.AccentText" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="Ui.Control" Color="#EEEBE4" />
+            <SolidColorBrush x:Key="Ui.ControlHover" Color="#E4E0D6" />
+            <SolidColorBrush x:Key="Ui.SegmentOn" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="Ui.Track" Color="#D8D4CA" />
+            <SolidColorBrush x:Key="Ui.Thumb" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="Ui.Stage" Color="#ECE9E1" />
+            <SolidColorBrush x:Key="Ui.Danger" Color="#C9452F" />
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

@@ -6,6 +6,47 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-19
+
+### Added
+- Limit reset blast: when the 5-hour limit resets, the old ornament squeezes, glows and bursts into
+  its own pieces with a shock ring, firecrackers, sparks and confetti; a fresh ornament springs in
+  with the new numbers. A "Play reset animation" button in Settings shows it any time.
+- Settings: live preview of the widget; theme (follow Windows / light / dark) for the widget and
+  every window; number shown in the ring (5-hour or weekly); cord colour; opacity; toggles for the
+  reset blast, shiver and the hover card; "Reset position" for the hanging point.
+- A themed look for Settings, Install and Sign in (dark title bars included), the tray menu and
+  the widget's own menu.
+
+### Changed
+- The widget window now covers everything the rope can reach, so the ornament is never cut off
+  at an invisible edge; dragging feels like a rope pulled taut instead of hitting a wall.
+- Lower memory: the GC is set to conserve memory, the working set is trimmed a few seconds after
+  the widget stops moving, and the render loop no longer creates garbage every frame.
+- The rope now ends exactly on the ornament's loop (it sat 1.5 px off); the ring and tag get a fine
+  edge line, a soft sheen and a metal loop / eyelet.
+
+### Security
+- The hidden helper browser that reads usage is locked to claude.ai: any redirect elsewhere, pop-up
+  or download is cancelled, dev tools and autofill are off, and page addresses are not sent to
+  SmartScreen. The sign-in window also cancels downloads and keeps no autofill.
+- Sign out clears everything the site left in the profile, not just cookies.
+- The sign-in profile moved from roaming `%AppData%` to `%LocalAppData%\TokenBob`, so a domain
+  roaming profile never carries the session off the PC (moved automatically on first start).
+- Releases ship a `TokenBob.exe.sha256` checksum; the release workflow no longer pastes the tag
+  name into a script; the build workflow's token is read-only and fork pull requests get no
+  artifact.
+
+### Fixed
+- Losing mouse capture mid-drag (lock screen, a prompt) no longer leaves the ornament grabbed or
+  frozen with the render loop running.
+- A read-only or locked logs folder no longer stops usage polling.
+- Quitting during a fetch no longer logs a bogus "Usage polling stopped" error.
+- "resets 24h 0m" is now shown as the weekday; unknown values in settings.json fall back to defaults.
+- Changing the refresh interval applies at once instead of after the wait already in progress.
+- A hard pull always plays the lamp-chain click, even within the 30 s refresh cooldown.
+- Releases are stamped with the tag's version instead of always reporting 0.1.0.
+
 ## [0.1.0] - 2026-10-14
 
 ### Added
@@ -19,5 +60,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Hides while a fullscreen app runs on its monitor.
 - Single-file `TokenBob.exe` release built by GitHub Actions.
 
-[Unreleased]: https://github.com/Ajmalpshaik/TokenBob/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Ajmalpshaik/TokenBob/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Ajmalpshaik/TokenBob/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Ajmalpshaik/TokenBob/releases/tag/v0.1.0

@@ -20,12 +20,24 @@ jobs:
       - name: Test
         run: dotnet test -c Release
 
+      # The tag name goes through an environment variable, never straight into the script.
       - name: Publish TokenBob.exe
         shell: pwsh
-        run: ./build/publish.ps1
+        env:
+          TAG: ${{ github.ref_name }}
+        # The tag (v0.2.0) is the version the exe reports.
+        run: ./build/publish.ps1 -Version $env:TAG.TrimStart('v')
+
+      - name: Write checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash publish/TokenBob.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  TokenBob.exe" | Set-Content -NoNewline publish/TokenBob.exe.sha256
+          Get-Content publish/TokenBob.exe.sha256
 
       - name: Create GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" publish/TokenBob.exe --title "TokenBob ${{ github.ref_name }}" --generate-notes
+          TAG: ${{ github.ref_name }}
+        run: gh release create $env:TAG publish/TokenBob.exe publish/TokenBob.exe.sha256 --title "TokenBob $env:TAG" --generate-notes

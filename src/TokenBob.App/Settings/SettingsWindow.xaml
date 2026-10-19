@@ -1,125 +1,263 @@
 <Window x:Class="TokenBob.App.Settings.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:settings="clr-namespace:TokenBob.App.Settings"
         Title="TokenBob settings"
-        Width="420" SizeToContent="Height" MaxHeight="760"
+        Width="540" SizeToContent="Height" MaxHeight="820"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/TokenBob.ico"
-        Background="#F7F6F2"
-        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13">
-    <Window.Resources>
-        <Style x:Key="Section" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#5F5E5A" />
-            <Setter Property="Margin" Value="0,16,0,6" />
-        </Style>
-        <Style x:Key="Card" TargetType="Border">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#E4E2DA" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="14,10" />
-        </Style>
-        <Style TargetType="CheckBox">
-            <Setter Property="Margin" Value="0,4" />
-        </Style>
-        <Style TargetType="RadioButton">
-            <Setter Property="Margin" Value="0,0,18,0" />
-        </Style>
-        <Style x:Key="Label" TargetType="TextBlock">
-            <Setter Property="Margin" Value="0,8,0,2" />
-        </Style>
-    </Window.Resources>
+        Background="{DynamicResource Ui.Window}"
+        Foreground="{DynamicResource Ui.Text}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <DockPanel>
+        <!-- Header -->
+        <DockPanel DockPanel.Dock="Top" Margin="24,18,24,2">
+            <Image Source="/Assets/TokenBob.ico" Width="40" Height="40" DockPanel.Dock="Left" Margin="0,0,14,0"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Foreground="{DynamicResource Ui.Muted}"
+                       VerticalAlignment="Center" FontSize="12" />
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="TokenBob" FontSize="19" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI" />
+                <TextBlock x:Name="AccountStatus" Foreground="{DynamicResource Ui.Muted}" FontSize="12" Margin="0,1,0,0" />
+            </StackPanel>
+        </DockPanel>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="18,4,18,18">
-            <TextBlock Style="{StaticResource Section}" Text="Look" />
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Text="Ornament" Margin="0,0,0,4" />
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="StyleRing" Content="Ring" GroupName="style" />
-                        <RadioButton x:Name="StyleTag" Content="Hanging tag" GroupName="style" />
-                    </StackPanel>
-                    <TextBlock Text="Rope" Style="{StaticResource Label}" />
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="RopeCord" Content="Twisted cord" GroupName="rope" />
-                        <RadioButton x:Name="RopeChain" Content="Bead chain" GroupName="rope" />
-                    </StackPanel>
-                    <DockPanel Margin="0,8,0,2">
-                        <TextBlock x:Name="RopeLengthValue" DockPanel.Dock="Right" Foreground="#5F5E5A" />
-                        <TextBlock Text="Rope length" />
-                    </DockPanel>
-                    <Slider x:Name="RopeLength" Minimum="60" Maximum="400" SmallChange="5" LargeChange="20" />
-                    <DockPanel Margin="0,8,0,2">
-                        <TextBlock x:Name="OrnamentSizeValue" DockPanel.Dock="Right" Foreground="#5F5E5A" />
-                        <TextBlock Text="Ornament size" />
-                    </DockPanel>
-                    <Slider x:Name="OrnamentSize" Minimum="80" Maximum="140" SmallChange="5" LargeChange="10" />
-                </StackPanel>
-            </Border>
+        <ScrollViewer Style="{StaticResource Ui.Scroll}">
+            <StackPanel Margin="24,10,24,24">
 
-            <TextBlock Style="{StaticResource Section}" Text="Motion" />
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,2">
-                        <TextBlock DockPanel.Dock="Right" Text="Bouncy" Foreground="#5F5E5A" />
-                        <TextBlock Text="Swing  ·  Calm" />
-                    </DockPanel>
-                    <Slider x:Name="Swing" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10" />
-                    <CheckBox x:Name="Wind" Content="Sway when the mouse rushes past" Margin="0,8,0,0" />
-                </StackPanel>
-            </Border>
-
-            <TextBlock Style="{StaticResource Section}" Text="Data" />
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <DockPanel>
-                        <ComboBox x:Name="Refresh" DockPanel.Dock="Right" Width="110" />
-                        <TextBlock Text="Refresh every" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <DockPanel Margin="0,10,0,0">
-                        <Button x:Name="RefreshNow" DockPanel.Dock="Right" Content="Refresh now" Padding="12,3" />
-                        <TextBlock x:Name="DataStatus" Foreground="#5F5E5A" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                    </DockPanel>
-                </StackPanel>
-            </Border>
-
-            <TextBlock Style="{StaticResource Section}" Text="Alerts" />
-            <Border Style="{StaticResource Card}">
-                <CheckBox x:Name="Notifications" Content="Windows notifications at 80% and 95%" />
-            </Border>
-
-            <TextBlock Style="{StaticResource Section}" Text="Behavior" />
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <CheckBox x:Name="StartWithWindows" Content="Start with Windows" />
-                    <CheckBox x:Name="AutoHide" Content="Hide while a fullscreen app is running" />
-                </StackPanel>
-            </Border>
-
-            <TextBlock Style="{StaticResource Section}" Text="Account" />
-            <Border Style="{StaticResource Card}">
-                <DockPanel>
-                    <Button x:Name="SignInOut" DockPanel.Dock="Right" Content="Sign in" Padding="12,3" />
-                    <TextBlock x:Name="AccountStatus" VerticalAlignment="Center" />
-                </DockPanel>
-            </Border>
-
-            <TextBlock Style="{StaticResource Section}" Text="About" />
-            <Border Style="{StaticResource Card}">
-                <DockPanel>
-                    <Button x:Name="Quit" DockPanel.Dock="Right" Content="Quit TokenBob" Padding="12,3" />
+                <!-- Live preview -->
+                <Border Style="{StaticResource Ui.Panel}" Padding="0" Background="{DynamicResource Ui.Stage}">
                     <StackPanel>
-                        <TextBlock x:Name="VersionText" />
-                        <TextBlock Margin="0,2,0,0">
-                            <Hyperlink x:Name="RepoLink">View on GitHub</Hyperlink>
-                        </TextBlock>
+                        <settings:OrnamentPreview x:Name="Preview" Height="200" Background="Transparent" />
+                        <Border Background="{DynamicResource Ui.Card}" CornerRadius="0,0,12,12" Padding="16,10">
+                            <DockPanel>
+                                <Button x:Name="PlayReset" DockPanel.Dock="Right" Style="{StaticResource Ui.Button}"
+                                        Content="Play reset animation" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Live preview" Style="{StaticResource Ui.RowLabel}" FontWeight="SemiBold" />
+                                    <TextBlock Text="Shows your look with your current numbers. Changes apply to the widget straight away."
+                                               Style="{StaticResource Ui.Hint}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
                     </StackPanel>
-                </DockPanel>
-            </Border>
-        </StackPanel>
-    </ScrollViewer>
+                </Border>
+
+                <!-- Appearance -->
+                <TextBlock Style="{StaticResource Ui.Section}" Text="Appearance" />
+                <Border Style="{StaticResource Ui.Panel}">
+                    <StackPanel>
+                        <DockPanel Style="{StaticResource Ui.Row}">
+                            <Border Style="{StaticResource Ui.SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="ThemeSystem" Content="Windows" GroupName="theme" Style="{StaticResource Ui.Segment}" />
+                                    <RadioButton x:Name="ThemeLight" Content="Light" GroupName="theme" Style="{StaticResource Ui.Segment}" />
+                                    <RadioButton x:Name="ThemeDark" Content="Dark" GroupName="theme" Style="{StaticResource Ui.Segment}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Theme" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="For the widget and every TokenBob window" Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </DockPanel>
+                        <Border Style="{StaticResource Ui.Divider}" />
+
+                        <DockPanel Style="{StaticResource Ui.Row}">
+                            <Border Style="{StaticResource Ui.SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="StyleRing" Content="Ring" GroupName="style" Style="{StaticResource Ui.Segment}" />
+                                    <RadioButton x:Name="StyleTag" Content="Hanging tag" GroupName="style" Style="{StaticResource Ui.Segment}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Ornament" Style="{StaticResource Ui.RowLabel}" />
+                        </DockPanel>
+                        <Border Style="{StaticResource Ui.Divider}" />
+
+                        <DockPanel x:Name="CenterRow" Style="{StaticResource Ui.Row}">
+                            <Border Style="{StaticResource Ui.SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="CenterFive" Content="5-hour" GroupName="center" Style="{StaticResource Ui.Segment}" />
+                                    <RadioButton x:Name="CenterWeek" Content="Weekly" GroupName="center" Style="{StaticResource Ui.Segment}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Number in the ring" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="Inner ring is always 5-hour, outer ring weekly" Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </DockPanel>
+                        <Border x:Name="CenterDivider" Style="{StaticResource Ui.Divider}" />
+
+                        <DockPanel Style="{StaticResource Ui.Row}">
+                            <Border Style="{StaticResource Ui.SegmentGroup}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="RopeCord" Content="Twisted cord" GroupName="rope" Style="{StaticResource Ui.Segment}" />
+                                    <RadioButton x:Name="RopeChain" Content="Bead chain" GroupName="rope" Style="{StaticResource Ui.Segment}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Rope" Style="{StaticResource Ui.RowLabel}" />
+                        </DockPanel>
+                        <Border Style="{StaticResource Ui.Divider}" />
+
+                        <DockPanel x:Name="CordRow" Style="{StaticResource Ui.Row}">
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                <RadioButton x:Name="CordGold" GroupName="cord" Style="{StaticResource Ui.Swatch}" Background="#BA7517" ToolTip="Gold" />
+                                <RadioButton x:Name="CordGraphite" GroupName="cord" Style="{StaticResource Ui.Swatch}" Background="#4A4A48" ToolTip="Graphite" />
+                                <RadioButton x:Name="CordCrimson" GroupName="cord" Style="{StaticResource Ui.Swatch}" Background="#A8352B" ToolTip="Crimson" />
+                                <RadioButton x:Name="CordIvory" GroupName="cord" Style="{StaticResource Ui.Swatch}" Background="#DDD6C6" ToolTip="Ivory" />
+                            </StackPanel>
+                            <TextBlock Text="Cord colour" Style="{StaticResource Ui.RowLabel}" />
+                        </DockPanel>
+                        <Border x:Name="CordDivider" Style="{StaticResource Ui.Divider}" />
+
+                        <DockPanel Margin="0,10,0,0">
+                            <TextBlock x:Name="RopeLengthValue" DockPanel.Dock="Right" Style="{StaticResource Ui.Value}" />
+                            <TextBlock Text="Rope length" Style="{StaticResource Ui.RowLabel}" />
+                        </DockPanel>
+                        <Slider x:Name="RopeLength" Style="{StaticResource Ui.Slider}" Minimum="60" Maximum="400" SmallChange="5" LargeChange="20" />
+
+                        <DockPanel Margin="0,6,0,0">
+                            <TextBlock x:Name="OrnamentSizeValue" DockPanel.Dock="Right" Style="{StaticResource Ui.Value}" />
+                            <TextBlock Text="Ornament size" Style="{StaticResource Ui.RowLabel}" />
+                        </DockPanel>
+                        <Slider x:Name="OrnamentSize" Style="{StaticResource Ui.Slider}" Minimum="80" Maximum="140" SmallChange="5" LargeChange="10" />
+
+                        <DockPanel Margin="0,6,0,0">
+                            <TextBlock x:Name="OpacityValue" DockPanel.Dock="Right" Style="{StaticResource Ui.Value}" />
+                            <TextBlock Text="Opacity" Style="{StaticResource Ui.RowLabel}" />
+                        </DockPanel>
+                        <Slider x:Name="OpacitySlider" Style="{StaticResource Ui.Slider}" Minimum="40" Maximum="100" SmallChange="5" LargeChange="10" Margin="0,0,0,8" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Motion and effects -->
+                <TextBlock Style="{StaticResource Ui.Section}" Text="Motion and effects" />
+                <Border Style="{StaticResource Ui.Panel}">
+                    <StackPanel>
+                        <DockPanel Margin="0,10,0,0">
+                            <TextBlock DockPanel.Dock="Right" Text="calm ← → bouncy" Style="{StaticResource Ui.Value}" />
+                            <TextBlock Text="Swing" Style="{StaticResource Ui.RowLabel}" />
+                        </DockPanel>
+                        <Slider x:Name="Swing" Style="{StaticResource Ui.Slider}" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10" />
+                        <Border Style="{StaticResource Ui.Divider}" Margin="0,6,0,0" />
+
+                        <CheckBox x:Name="Wind" Style="{StaticResource Ui.Toggle}" Margin="0,10">
+                            <StackPanel>
+                                <TextBlock Text="Sway in the wind" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="When the mouse rushes past it" Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </CheckBox>
+                        <Border Style="{StaticResource Ui.Divider}" />
+                        <CheckBox x:Name="BlastToggle" Style="{StaticResource Ui.Toggle}" Margin="0,10">
+                            <StackPanel>
+                                <TextBlock Text="Blast when the 5-hour limit resets" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="The old ornament bursts with firecrackers and a fresh one pops in. Off: a small bounce." Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </CheckBox>
+                        <Border Style="{StaticResource Ui.Divider}" />
+                        <CheckBox x:Name="ShiverToggle" Style="{StaticResource Ui.Toggle}" Margin="0,10">
+                            <StackPanel>
+                                <TextBlock Text="Shiver at 90%" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="A nervous jitter when the 5-hour limit is nearly used up" Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </CheckBox>
+                        <Border Style="{StaticResource Ui.Divider}" />
+                        <CheckBox x:Name="HoverToggle" Style="{StaticResource Ui.Toggle}" Margin="0,10">
+                            <StackPanel>
+                                <TextBlock Text="Details card on hover" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="Exact numbers, reset times and when it last updated" Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </CheckBox>
+                    </StackPanel>
+                </Border>
+
+                <!-- Data -->
+                <TextBlock Style="{StaticResource Ui.Section}" Text="Data" />
+                <Border Style="{StaticResource Ui.Panel}">
+                    <StackPanel>
+                        <DockPanel Style="{StaticResource Ui.Row}">
+                            <Border Style="{StaticResource Ui.SegmentGroup}">
+                                <StackPanel x:Name="RefreshChoices" Orientation="Horizontal" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Refresh every" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="Minutes between usage checks" Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </DockPanel>
+                        <Border Style="{StaticResource Ui.Divider}" />
+                        <DockPanel Style="{StaticResource Ui.Row}">
+                            <Button x:Name="RefreshNow" DockPanel.Dock="Right" Style="{StaticResource Ui.Button}" Content="Refresh now" />
+                            <TextBlock x:Name="DataStatus" Style="{StaticResource Ui.RowLabel}" Foreground="{DynamicResource Ui.Muted}"
+                                       TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Alerts -->
+                <TextBlock Style="{StaticResource Ui.Section}" Text="Alerts" />
+                <Border Style="{StaticResource Ui.Panel}">
+                    <CheckBox x:Name="Notifications" Style="{StaticResource Ui.Toggle}" Margin="0,10">
+                        <StackPanel>
+                            <TextBlock Text="Windows notifications" Style="{StaticResource Ui.RowLabel}" />
+                            <TextBlock Text="At 80% and 95% of each limit, once per limit window" Style="{StaticResource Ui.Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                </Border>
+
+                <!-- Behavior -->
+                <TextBlock Style="{StaticResource Ui.Section}" Text="Behavior" />
+                <Border Style="{StaticResource Ui.Panel}">
+                    <StackPanel>
+                        <CheckBox x:Name="StartWithWindows" Style="{StaticResource Ui.Toggle}" Margin="0,10">
+                            <TextBlock Text="Start with Windows" Style="{StaticResource Ui.RowLabel}" />
+                        </CheckBox>
+                        <Border Style="{StaticResource Ui.Divider}" />
+                        <CheckBox x:Name="AutoHide" Style="{StaticResource Ui.Toggle}" Margin="0,10">
+                            <StackPanel>
+                                <TextBlock Text="Hide during fullscreen apps" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="Games, videos and presentations on its monitor" Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </CheckBox>
+                        <Border Style="{StaticResource Ui.Divider}" />
+                        <DockPanel Style="{StaticResource Ui.Row}">
+                            <Button x:Name="ResetPosition" DockPanel.Dock="Right" Style="{StaticResource Ui.Button}" Content="Reset position" />
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="Hanging point" Style="{StaticResource Ui.RowLabel}" />
+                                <TextBlock Text="Shift + drag the ornament to move it along the top edge (even to another monitor); up and down changes the rope length."
+                                           Style="{StaticResource Ui.Hint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Account -->
+                <TextBlock Style="{StaticResource Ui.Section}" Text="Account" />
+                <Border Style="{StaticResource Ui.Panel}">
+                    <DockPanel Style="{StaticResource Ui.Row}">
+                        <Button x:Name="SignInOut" DockPanel.Dock="Right" Style="{StaticResource Ui.AccentButton}" Content="Sign in" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="AccountLine" Style="{StaticResource Ui.RowLabel}" />
+                            <TextBlock Text="TokenBob has its own claude.ai sign-in; it never sees your password." Style="{StaticResource Ui.Hint}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- About -->
+                <TextBlock Style="{StaticResource Ui.Section}" Text="About" />
+                <Border Style="{StaticResource Ui.Panel}">
+                    <DockPanel Style="{StaticResource Ui.Row}">
+                        <Button x:Name="Quit" DockPanel.Dock="Right" Style="{StaticResource Ui.Button}" Content="Quit TokenBob" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="AboutLine" Style="{StaticResource Ui.RowLabel}" />
+                            <TextBlock Style="{StaticResource Ui.Hint}">
+                                <Hyperlink x:Name="RepoLink" Style="{StaticResource Ui.Link}">View on GitHub</Hyperlink>
+                                <Run Text=" · Not affiliated with Anthropic" />
+                            </TextBlock>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </Window>

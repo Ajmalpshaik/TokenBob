@@ -8,6 +8,7 @@ using TokenBob.App.Input;
 using TokenBob.App.Platform;
 using TokenBob.App.Settings;
 using TokenBob.App.Tray;
+using TokenBob.App.Ui;
 using TokenBob.App.Widget;
 using TokenBob.Core;
 using TokenBob.Core.Alerts;
@@ -46,11 +47,42 @@ public partial class App : Application
     private FullscreenWatcher? _fullscreen;
     private bool _hiddenByUser;
     private bool _hiddenForFullscreen;
+    private bool? _appliedDark;
 
     private EventWaitHandle? _quitSignal;
     private ClaudeWebUsageProvider? _webProvider;
 
     private bool SignedIn => _poller?.State is { LastGood: not null, Status: not UsageError.NotSignedIn };
+
+    static App()
+    {
+        // Anything that escapes before the log or a window exists still leaves a trace.
+        AppDomain.CurrentDomain.UnhandledException += (_, args) => ReportCrash(args.ExceptionObject as Exception);
+    }
+
+    /// <summary>Writes the crash to %AppData%\TokenBob\logs\crash.txt and shows it, so it can be reported.</summary>
+    private static void ReportCrash(Exception? ex)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(AppPaths.LogsDir);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(AppPaths.LogsDir, "crash.txt"), $"{DateTimeOffset.Now:O}{Environment.NewLine}{ex}");
+        }
+        catch
+        {
+            // Nothing more to do: the crash is already on its way.
+        }
+        try
+        {
+            MessageBox.Show($"TokenBob crashed.{Environment.NewLine}{Environment.NewLine}{ex?.GetType().Name}: {ex?.Message}{Environment.NewLine}{Environment.NewLine}" +
+                            "Details were saved to %AppData%\\TokenBob\\logs\\crash.txt",
+                "TokenBob", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        catch
+        {
+            // The UI itself may be what failed.
+        }
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -64,6 +96,7 @@ public partial class App : Application
         }
 
         _demo = e.Args is ["--demo-alerts"];
+        Theme.Apply(IsDarkFor(new JsonStore<WidgetSettings>(AppPaths.SettingsFile, NullLog.Instance).Load().Normalized().Theme));
 
         var paths = InstallerService.Paths;
         switch (Installer.Decide(e.Args, Environment.ProcessPath ?? "", paths, InstallerService.IsInstalled, InstallerService.IsSingleFileBuild))
@@ -95,6 +128,7 @@ public partial class App : Application
         };
         _log.Info($"TokenBob {typeof(App).Assembly.GetName().Version} starting");
         ListenForQuit();
+        MoveProfileOutOfRoaming();
 
         try
         {
@@ -119,18 +153,14 @@ public partial class App : Application
         _saveTimer = new DispatcherTimer(SaveDelay, DispatcherPriority.Background, (_, _) => SaveSettingsNow(), Dispatcher) { IsEnabled = false };
         SyncStartup();
 
-        Palette.UseDark(WindowsTheme.IsDark);
-        WindowsTheme.Changed += () =>
-        {
-            Palette.UseDark(WindowsTheme.IsDark);
-            _widget?.Repaint();
-            Render();
-        };
+        ApplyTheme();
+        WindowsTheme.Changed += ApplyTheme;
 
         var placement = Placement.Resolve(Monitors.GetAll(), _settings.Monitor, _settings.AnchorXDevice, _settings.RopeLength);
         _widget = new WidgetWindow(_settings, placement);
         _widget.DisplayChanged += OnDisplayChanged;
-        _presenter = new UsagePresenter(_widget);
+        _widget.Idle += MemoryTrim.Trim;
+        _presenter = new UsagePresenter(_widget, _settings);
 
         _tray = new TrayIconHost();
         _tray.SettingsClicked += OpenSettings;
@@ -196,6 +226,26 @@ public partial class App : Application
         _widget.MoveTo(Placement.Resolve(monitors, Placement.IdOf(current.Monitor), current.AnchorXDevice, current.RopeLength));
     }
 
+    /// <summary>
+    /// Versions before 0.2 kept the sign-in profile in roaming %AppData%, where a domain profile
+    /// could copy the session off this PC. Move it to %LocalAppData% once; if that fails the user
+    /// simply signs in again.
+    /// </summary>
+    private void MoveProfileOutOfRoaming()
+    {
+        try
+        {
+            if (!System.IO.Directory.Exists(AppPaths.LegacyWebView2Dir) || System.IO.Directory.Exists(AppPaths.WebView2Dir)) return;
+            System.IO.Directory.CreateDirectory(AppPaths.LocalRoot);
+            System.IO.Directory.Move(AppPaths.LegacyWebView2Dir, AppPaths.WebView2Dir);
+            _log.Info("Moved the sign-in profile to " + AppPaths.LocalRoot);
+        }
+        catch (Exception ex)
+        {
+            _log.Warn("Couldn't move the sign-in profile out of the roaming folder: " + ex.Message);
+        }
+    }
+
     /// <summary>An installer or uninstaller sets this event to close TokenBob cleanly.</summary>
     private void ListenForQuit()
     {
@@ -248,12 +298,28 @@ public partial class App : Application
 
     private void OnUsage(UsageState state)
     {
-        Render();
+        IReadOnlyList<AlertEvent> events = [];
         if (state is { Status: null, IsLoading: false, LastGood: { } fresh } && !ReferenceEquals(fresh, _lastEvaluated))
         {
-            RunAlerts(_lastEvaluated, fresh);
+            events = AlertRules.Evaluate(_lastEvaluated, fresh, _alertMemory);
             _lastEvaluated = fresh;
+            if (events.Count > 0 && !_demo) _alertStore?.Save(_alertMemory);
         }
+
+        // On a reset the old look blasts apart first and the new numbers arrive with the new
+        // ornament, so the numbers are shown by the blast instead of right away.
+        if (events.Any(e => e is ResetBounce) && _settings.ResetBlast && _widget is { } widget)
+        {
+            _log.Info("5-hour limit reset: blast");
+            widget.PlayReset(Render);
+        }
+        else
+        {
+            Render();
+        }
+
+        foreach (var alert in events) RunAlert(alert, state.LastGood);
+
         if (state is { Status: UsageError.NotSignedIn, IsLoading: false } && !_signInOfferedThisLaunch)
         {
             _signInOfferedThisLaunch = true;
@@ -261,29 +327,22 @@ public partial class App : Application
         }
     }
 
-    private void RunAlerts(UsageSnapshot? previous, UsageSnapshot current)
+    private void RunAlert(AlertEvent alert, UsageSnapshot? current)
     {
-        var events = AlertRules.Evaluate(previous, current, _alertMemory);
-        if (events.Count == 0) return;
-        if (!_demo) _alertStore?.Save(_alertMemory);
-
-        foreach (var alert in events)
+        switch (alert)
         {
-            switch (alert)
-            {
-                case ThresholdCrossed crossing when _settings.Notifications:
-                    var (title, body) = UsageDisplay.NotificationText(crossing, current, DateTimeOffset.Now, TimeZoneInfo.Local, CultureInfo.CurrentCulture);
-                    _tray?.Notify(title, body);
-                    _log.Info($"Notified: {crossing.Limit} {crossing.Threshold}%");
-                    break;
-                case Shiver:
-                    _widget?.Shiver();
-                    break;
-                case ResetBounce:
-                    _widget?.Sim.ApplyImpulse(new Vec2(0, -900));
-                    _widget?.Wake();
-                    break;
-            }
+            case ThresholdCrossed crossing when _settings.Notifications && current is not null:
+                var (title, body) = UsageDisplay.NotificationText(crossing, current, DateTimeOffset.Now, TimeZoneInfo.Local, CultureInfo.CurrentCulture);
+                _tray?.Notify(title, body);
+                _log.Info($"Notified: {crossing.Limit} {crossing.Threshold}%");
+                break;
+            case Shiver when _settings.Shiver:
+                _widget?.Shiver();
+                break;
+            case ResetBounce when !_settings.ResetBlast:
+                _widget?.Sim.ApplyImpulse(new Vec2(0, -900));
+                _widget?.Wake();
+                break;
         }
     }
 
@@ -307,7 +366,37 @@ public partial class App : Application
         _presenter.Show(model);
         _tray?.SetTooltip(model.TrayTooltip);
         _tray?.SetSignedIn(SignedIn);
-        _settingsWindow?.SetStatus(model.HoverLines[^1], SignedIn);
+        _settingsWindow?.Update(model, SignedIn);
+    }
+
+    /// <summary>Light or dark for the widget and every window: the user's choice, or what Windows uses.</summary>
+    private void ApplyTheme()
+    {
+        var dark = IsDarkFor(_settings.Theme);
+        if (_appliedDark == dark) return;
+        _appliedDark = dark;
+        Palette.UseDark(dark);
+        Theme.Apply(dark);
+        _widget?.Repaint();
+        Render();
+    }
+
+    private static bool IsDarkFor(AppTheme theme) => theme switch
+    {
+        AppTheme.Dark => true,
+        AppTheme.Light => false,
+        _ => WindowsTheme.IsDark,
+    };
+
+    /// <summary>Hangs the widget back at the default spot on the main monitor (it may have been lost off-screen).</summary>
+    private void ResetPlacement()
+    {
+        if (_widget is null) return;
+        _settings.Monitor = null;
+        _settings.AnchorXDevice = null;
+        var placement = Placement.Resolve(Monitors.GetAll(), null, null, _settings.RopeLength);
+        _widget.MoveTo(placement);
+        SavePlacement(placement);
     }
 
     private void OpenSettings()
@@ -322,6 +411,8 @@ public partial class App : Application
         _settingsWindow.Changed += OnSettingsChanged;
         _settingsWindow.RefreshRequested += () => _poller?.RefreshNow();
         _settingsWindow.SignInOutRequested += async () => await SignInOrOutAsync();
+        _settingsWindow.PlayResetRequested += () => _widget?.PlayReset(() => { });
+        _settingsWindow.ResetPositionRequested += ResetPlacement;
         _settingsWindow.QuitRequested += Shutdown;
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         Render();
@@ -331,7 +422,9 @@ public partial class App : Application
 
     private void OnSettingsChanged()
     {
+        ApplyTheme();
         _widget?.ApplySettings();
+        Render();   // e.g. the number shown in the ring
         if (_poller is not null) _poller.Interval = TimeSpan.FromMinutes(_settings.RefreshMinutes);
         if (_settings.StartWithWindows != StartupRegistration.IsEnabled()) TrySetStartup(_settings.StartWithWindows);
         if (_fullscreen is not null) _fullscreen.Enabled = _settings.AutoHideFullscreen;
@@ -421,10 +514,11 @@ public partial class App : Application
 
     private void OnPullRefresh()
     {
-        if (_poller?.RefreshNow() != true || _widget is null) return;
-        _log.Info("Pull to refresh");
+        if (_widget is null) return;
+        // The lamp-chain click always plays; the refresh itself is what the 30 s cooldown limits.
         _widget.Sim.ApplyImpulse(new Vec2(0, -600));
         _widget.Wake();
+        if (_poller?.RefreshNow() == true) _log.Info("Pull to refresh");
     }
 
     private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)

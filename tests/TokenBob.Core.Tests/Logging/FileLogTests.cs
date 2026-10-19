@@ -35,6 +35,8 @@ public class FileLogTests
         Assert.Equal(Path.Combine(root, "settings.json"), AppPaths.SettingsFile);
         Assert.Equal(Path.Combine(root, "alert-state.json"), AppPaths.AlertStateFile);
         Assert.Equal(Path.Combine(root, "logs"), AppPaths.LogsDir);
-        Assert.Equal(Path.Combine(root, "WebView2"), AppPaths.WebView2Dir);
+        // The sign-in profile is the one thing that must not roam.
+        var local = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TokenBob");
+        Assert.Equal(Path.Combine(local, "WebView2"), AppPaths.WebView2Dir);
     }
 }

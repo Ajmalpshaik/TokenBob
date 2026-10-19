@@ -43,6 +43,12 @@ internal static class NativeMethods
 
     public delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data);
 
+    public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
+    /// <summary>Dark or light title bar for a normal window (ignored by Windows builds that don't support it).</summary>
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hWnd, int attribute, ref int value, int size);
+
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc callback, IntPtr data);

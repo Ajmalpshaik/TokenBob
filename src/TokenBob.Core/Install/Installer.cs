@@ -25,8 +25,7 @@ public static class Installer
     {
         if (args.Contains("--uninstall")) return LaunchMode.Uninstall;
         if (!singleFileBuild || args.Any(RunOnlyOptions.Contains)) return LaunchMode.Run;
-        if (string.Equals(Path.GetFullPath(exePath), Path.GetFullPath(paths.Exe), StringComparison.OrdinalIgnoreCase))
-            return LaunchMode.Run;
+        if (IsInstalledCopy(exePath, paths)) return LaunchMode.Run;
         return installedExists ? LaunchMode.Update : LaunchMode.Install;
     }
 
@@ -34,6 +33,10 @@ public static class Installer
     /// Whether this copy may keep the "start with Windows" entry pointing at itself. Only the
     /// installed copy does, so a developer or test run never takes it over.
     /// </summary>
-    public static bool OwnsStartupEntry(string exePath, InstallPaths paths) =>
-        string.Equals(Path.GetFullPath(exePath), Path.GetFullPath(paths.Exe), StringComparison.OrdinalIgnoreCase);
+    public static bool OwnsStartupEntry(string exePath, InstallPaths paths) => IsInstalledCopy(exePath, paths);
+
+    /// <summary>An unknown exe path (no process path) is never taken for the installed copy.</summary>
+    private static bool IsInstalledCopy(string exePath, InstallPaths paths) =>
+        !string.IsNullOrWhiteSpace(exePath)
+        && string.Equals(Path.GetFullPath(exePath), Path.GetFullPath(paths.Exe), StringComparison.OrdinalIgnoreCase);
 }

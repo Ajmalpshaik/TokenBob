@@ -12,6 +12,7 @@ public partial class InstallWindow : Window
     internal InstallWindow(LaunchMode mode, ILog log)
     {
         InitializeComponent();
+        Ui.Theme.Attach(this);
         _log = log;
 
         var version = InstallerService.Version;

@@ -16,8 +16,15 @@ public sealed class FileLog : ILog
     {
         _dir = logsDir;
         _time = time;
-        Directory.CreateDirectory(_dir);
-        Prune();
+        try
+        {
+            Directory.CreateDirectory(_dir);
+            Prune();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A logs folder that can't be created or read only means no log; the widget still runs.
+        }
     }
 
     public void Info(string message) => Write("INFO", message);
@@ -33,9 +40,9 @@ public sealed class FileLog : ILog
         {
             lock (_gate) File.AppendAllText(Path.Combine(_dir, $"{Prefix}{now:yyyyMMdd}.log"), line);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Logging must never take the widget down.
+            // Logging must never take the widget down (a locked or read-only logs folder included).
         }
     }
 
@@ -48,7 +55,7 @@ public sealed class FileLog : ILog
             if (DateTime.TryParseExact(stamp, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)
                 && day < cutoff)
             {
-                try { File.Delete(file); } catch (IOException) { }
+                try { File.Delete(file); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             }
         }
     }

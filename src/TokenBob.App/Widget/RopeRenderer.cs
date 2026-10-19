@@ -10,19 +10,38 @@ internal static class RopeRenderer
 {
     private const double CordWidth = 6;
     private static readonly Pen CordShadowPen = RoundPen(Palette.Shadow, CordWidth);
-    private static readonly Pen CordBasePen = RoundPen(Palette.CordBase, CordWidth);
-    private static readonly Pen CordStripePen = FlatPen(Palette.CordStripe, 1.6);
-    private static readonly Pen CordHighlightPen = RoundPen(Palette.CordHighlight, 1);
+    private static CordColor _cord = CordColor.Gold;
+    private static Pen CordBasePen = RoundPen(Palette.CordBase, CordWidth);
+    private static Pen CordStripePen = FlatPen(Palette.CordStripe, 1.6);
+    private static Pen CordHighlightPen = RoundPen(Palette.CordHighlight, 1);
+    private static Brush CordMount = Palette.CordStripe;
     private static readonly Pen ChainLinkPen = RoundPen(Palette.BeadLink, 1.1);
     private static readonly Pen BeadRimPen = FlatPen(Palette.BeadRim, 0.5);
     private const double BeadRadius = 3.4;
     private const double BeadGap = 8.2;
 
-    public static void Draw(DrawingContext dc, IReadOnlyList<Vec2> points, RopeStyle style)
+    public static void Draw(DrawingContext dc, IReadOnlyList<Vec2> points, RopeStyle style, CordColor cord = CordColor.Gold)
     {
         if (points.Count < 2) return;
-        if (style == RopeStyle.BeadChain) DrawBeadChain(dc, points);
-        else DrawCord(dc, points);
+        if (style == RopeStyle.BeadChain)
+        {
+            DrawBeadChain(dc, points);
+            return;
+        }
+        UseCord(cord);
+        DrawCord(dc, points);
+    }
+
+    /// <summary>Swaps the cord pens when the cord colour setting changes (pens are kept between frames).</summary>
+    private static void UseCord(CordColor cord)
+    {
+        if (cord == _cord) return;
+        _cord = cord;
+        var (baseBrush, stripe, highlight) = Palette.Cord(cord);
+        CordBasePen = RoundPen(baseBrush, CordWidth);
+        CordStripePen = FlatPen(stripe, 1.6);
+        CordHighlightPen = RoundPen(highlight, 1);
+        CordMount = stripe;
     }
 
     /// <summary>A metal ball chain like a lamp pull: shaded beads on a thin link, with a clasp at the end.</summary>
@@ -76,7 +95,7 @@ internal static class RopeRenderer
         dc.DrawGeometry(null, CordHighlightPen, path);
         dc.Pop();
 
-        dc.DrawEllipse(Palette.CordStripe, null, ToPoint(points[0]), 3.5, 3.5);
+        dc.DrawEllipse(CordMount, null, ToPoint(points[0]), 3.5, 3.5);
     }
 
     /// <summary>Quadratic curve through the midpoints, so the rope bends smoothly.</summary>

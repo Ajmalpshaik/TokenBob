@@ -3,11 +3,21 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Sign in to Claude — TokenBob"
-        Width="480" Height="680"
-        WindowStartupLocation="CenterScreen">
+        Width="480" Height="700"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/TokenBob.ico"
+        Background="{DynamicResource Ui.Window}"
+        Foreground="{DynamicResource Ui.Text}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13">
     <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Margin="14,10" TextWrapping="Wrap" Foreground="#5F5E5A"
-                   Text="Sign in with your usual Claude account. TokenBob only reads your 5-hour and weekly usage. This window closes by itself when you're signed in." />
+        <Border DockPanel.Dock="Top" Background="{DynamicResource Ui.Card}" BorderBrush="{DynamicResource Ui.CardEdge}"
+                BorderThickness="0,0,0,1" Padding="16,12">
+            <StackPanel>
+                <TextBlock Text="Sign in with your usual Claude account" FontWeight="SemiBold" />
+                <TextBlock Margin="0,3,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Ui.Muted}"
+                           Text="TokenBob only reads your 5-hour and weekly usage. This window closes by itself when you're signed in." />
+            </StackPanel>
+        </Border>
         <wv2:WebView2 x:Name="View" />
     </DockPanel>
 </Window>

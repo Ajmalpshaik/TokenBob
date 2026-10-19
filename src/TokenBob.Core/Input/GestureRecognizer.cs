@@ -29,15 +29,33 @@ public sealed class GestureRecognizer
 
     public IReadOnlyList<GestureEvent> Down(Vec2 p, Modifiers mods, TimeSpan t)
     {
+        // A press while a drag or edit is still open (its release was never seen) ends it first.
+        var ended = Cancel(_downAt);
         _downAt = p;
         if (mods.HasFlag(Modifiers.Ctrl))
         {
             _mode = Mode.Swallow;
             _lastClick = null;
-            return [new GestureEvent(GestureEventKind.OpenSettings, p)];
+            return [.. ended, new GestureEvent(GestureEventKind.OpenSettings, p)];
         }
         _mode = mods.HasFlag(Modifiers.Shift) ? Mode.PendingEdit : Mode.PendingDrag;
-        return [];
+        return ended;
+    }
+
+    /// <summary>
+    /// The pointer was taken away mid-gesture (mouse capture lost to a lock screen, a prompt or
+    /// another window): ends an open drag or edit at <paramref name="p"/> so nothing stays grabbed.
+    /// </summary>
+    public IReadOnlyList<GestureEvent> Cancel(Vec2 p)
+    {
+        var mode = _mode;
+        _mode = Mode.Idle;
+        return mode switch
+        {
+            Mode.Drag => [new GestureEvent(GestureEventKind.DragEnd, p)],
+            Mode.Edit => [new GestureEvent(GestureEventKind.EditEnd, p)],
+            _ => [],
+        };
     }
 
     public IReadOnlyList<GestureEvent> Move(Vec2 p, TimeSpan t)

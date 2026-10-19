@@ -19,6 +19,14 @@ public class UsageDisplayTests
         UsageDisplay.From(new UsageState(lastGood, status, loading), Now, TimeZoneInfo.Utc, EnUs);
 
     [Fact]
+    public void Just_under_a_day_left_shows_the_weekday_not_24h_0m()
+    {
+        // 23 h 59 m 30 s rounds up to 24 h 0 m, which reads like a bug; the weekday is right.
+        var m = Show(Snap(fiveReset: Now.AddHours(24).AddSeconds(-30)));
+        Assert.Equal("resets Thu", m.FiveHour!.ResetShort);
+    }
+
+    [Fact]
     public void Ok_state()
     {
         var m = Show(Snap());
