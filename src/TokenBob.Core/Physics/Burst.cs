@@ -36,6 +36,8 @@ public sealed class BurstParticle
     public double CornerRadius { get; init; }
     /// <summary>Sparks and pops: dot radius.</summary>
     public double Size { get; init; }
+    /// <summary>Sparks: downward pull in px/s² (negative lets the arrival sparkles drift up).</summary>
+    public double Gravity { get; init; } = Burst.SparkGravity;
 
     public double Progress => Math.Clamp(Age / Life, 0, 1);
 
@@ -63,7 +65,8 @@ public sealed class BurstFlash
 public sealed class Burst
 {
     public const double Gravity = 900;               // px/s² for pieces (lighter than the rope, so they float a little)
-    private const double SparkGravity = 500;
+    public const double SparkGravity = 500;
+    private const double SparkleLift = -20;          // the arrival sparkles float up instead of falling
     private const double ConfettiGravity = 140;
     private const int CrackerCount = 5;
     private static readonly BurstPaint[] CrackerPaints = [BurstPaint.Gold, BurstPaint.Green, BurstPaint.Amber, BurstPaint.White, BurstPaint.Red];
@@ -140,7 +143,7 @@ public sealed class Burst
             _particles.Add(new BurstParticle
             {
                 Kind = BurstKind.Spark, Paint = i % 4 == 0 ? BurstPaint.White : paint, Position = at, Previous = at,
-                Velocity = new Vec2(Range(-30, 30), Range(-70, -20)), Life = Range(0.5, 0.8), Size = Range(1.5, 3),
+                Velocity = new Vec2(Range(-30, 30), Range(-70, -20)), Life = Range(0.5, 0.8), Size = Range(1.5, 3), Gravity = SparkleLift,
             });
         }
         Confetti(center, 10, radius, paint);
@@ -166,7 +169,7 @@ public sealed class Burst
             var v = p.Velocity;
             v = p.Kind switch
             {
-                BurstKind.Spark or BurstKind.Pop => v * Math.Pow(0.3, dt) + new Vec2(0, SparkGravity * dt),
+                BurstKind.Spark or BurstKind.Pop => v * Math.Pow(0.3, dt) + new Vec2(0, p.Gravity * dt),
                 BurstKind.Confetti => v * Math.Pow(0.4, dt) + new Vec2(Math.Sin(p.Age * 9 + p.Phase) * 60 * dt, ConfettiGravity * dt),
                 _ => new Vec2(v.X * Math.Pow(0.75, dt), v.Y + Gravity * dt),
             };

@@ -105,6 +105,10 @@ public class BurstTests
         burst.Celebrate(Center, 50);
         Assert.True(burst.IsActive);
         Assert.All(burst.Particles.Where(p => p.Kind == BurstKind.Spark), p => Assert.True(p.Velocity.Y < 0));
+
+        // They keep drifting up for their whole life instead of falling back like blast sparks.
+        Run(burst, 0.4);
+        Assert.All(burst.Particles.Where(p => p.Kind == BurstKind.Spark), p => Assert.True(p.Velocity.Y < 0, $"sparkle fell: vy={p.Velocity.Y}"));
         Assert.Contains(burst.Particles, p => p.Kind == BurstKind.Confetti);
         Assert.NotEmpty(burst.Flashes);
     }

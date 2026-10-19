@@ -51,7 +51,7 @@ public partial class WidgetWindow : Window
         _placement = placement;
         _sim = new RopeSim(Vec2.Zero, placement.RopeLength, settings.SwingStrength);
 
-        // Scale (the reset squeeze and pop) and rotation both pivot on the hang point.
+        // The reset squeeze and pop scale about the ornament's centre; rotation pivots on the hang point.
         Host.RenderTransform = new TransformGroup { Children = { _ornamentScale, _ornamentRotation } };
         UseStyle(settings.Style);
         Rope.RopeStyle = settings.Rope;
@@ -360,6 +360,7 @@ public partial class WidgetWindow : Window
         Canvas.SetLeft(Host, hang.X - width / 2);
         Canvas.SetTop(Host, hang.Y);
         _ornamentScale.CenterX = _ornamentRotation.CenterX = width / 2;
+        _ornamentScale.CenterY = Ornament.CenterOffset;
         _ornamentRotation.Angle = _sim.OrnamentAngle * 180 / Math.PI;
     }
 }
