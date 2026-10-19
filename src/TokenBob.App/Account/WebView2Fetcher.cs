@@ -65,6 +65,8 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
         try
         {
             var core = await EnsureCoreAsync(CancellationToken.None);
+            // Everything the site left behind goes, not just the cookies.
+            await core.Profile.ClearBrowsingDataAsync();
             core.CookieManager.DeleteAllCookies();
             _originReady = false;
         }
@@ -145,7 +147,9 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
             _host.Show();
 
             await _view.EnsureCoreWebView2Async(await WebViewEnvironment.GetAsync());
-            return _view.CoreWebView2;
+            var core = _view.CoreWebView2;
+            LockDown(core);
+            return core;
         }
         catch
         {
@@ -154,4 +158,31 @@ internal sealed class WebView2Fetcher : IWebFetcher, IDisposable
             throw;
         }
     }
+
+    /// <summary>
+    /// The helper only ever talks to claude.ai: a reply that redirects elsewhere, opens a
+    /// window or starts a download is cancelled rather than acted on, and nothing it sees is
+    /// remembered or reported anywhere.
+    /// </summary>
+    private static void LockDown(CoreWebView2 core)
+    {
+        core.NavigationStarting += (_, e) =>
+        {
+            if (!(Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri) && IsClaude(uri))) e.Cancel = true;
+        };
+        core.NewWindowRequested += (_, e) => e.Handled = true;
+        core.DownloadStarting += (_, e) =>
+        {
+            e.Cancel = true;
+            e.Handled = true;
+        };
+        core.Settings.AreDevToolsEnabled = false;
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.IsGeneralAutofillEnabled = false;
+        core.Settings.IsPasswordAutosaveEnabled = false;
+        core.Settings.IsReputationCheckingRequired = false;   // addresses are not sent to SmartScreen
+    }
+
+    private static bool IsClaude(Uri uri) =>
+        uri.Scheme == Uri.UriSchemeHttps && uri.Host.Equals("claude.ai", StringComparison.OrdinalIgnoreCase);
 }

@@ -128,6 +128,7 @@ public partial class App : Application
         };
         _log.Info($"TokenBob {typeof(App).Assembly.GetName().Version} starting");
         ListenForQuit();
+        MoveProfileOutOfRoaming();
 
         try
         {
@@ -223,6 +224,26 @@ public partial class App : Application
         if (monitors.Count == 0) return;
         var current = _widget.Placement;
         _widget.MoveTo(Placement.Resolve(monitors, Placement.IdOf(current.Monitor), current.AnchorXDevice, current.RopeLength));
+    }
+
+    /// <summary>
+    /// Versions before 0.2 kept the sign-in profile in roaming %AppData%, where a domain profile
+    /// could copy the session off this PC. Move it to %LocalAppData% once; if that fails the user
+    /// simply signs in again.
+    /// </summary>
+    private void MoveProfileOutOfRoaming()
+    {
+        try
+        {
+            if (!System.IO.Directory.Exists(AppPaths.LegacyWebView2Dir) || System.IO.Directory.Exists(AppPaths.WebView2Dir)) return;
+            System.IO.Directory.CreateDirectory(AppPaths.LocalRoot);
+            System.IO.Directory.Move(AppPaths.LegacyWebView2Dir, AppPaths.WebView2Dir);
+            _log.Info("Moved the sign-in profile to " + AppPaths.LocalRoot);
+        }
+        catch (Exception ex)
+        {
+            _log.Warn("Couldn't move the sign-in profile out of the roaming folder: " + ex.Message);
+        }
     }
 
     /// <summary>An installer or uninstaller sets this event to close TokenBob cleanly.</summary>

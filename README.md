@@ -10,7 +10,8 @@ stretches, spins and settles back like a real thing on a string.
 
 ## Install
 
-1. Download **`TokenBob.exe`** from the [latest release](https://github.com/Ajmalpshaik/TokenBob/releases/latest).
+1. Download **`TokenBob.exe`** from the [latest release](https://github.com/Ajmalpshaik/TokenBob/releases/latest)
+   (the `.sha256` file next to it lets you check the download: `certutil -hashfile TokenBob.exe SHA256`).
 2. Double-click it and click **Install**. That's it — no admin password needed.
 3. A small window asks you to **sign in to Claude once** (email code or "Continue with Google").
    After that TokenBob stays signed in for weeks.
@@ -73,8 +74,8 @@ animation" button in Settings to see it any time). Settings are saved in
 ## How it gets your usage
 
 - TokenBob has its **own one-time sign-in** to claude.ai, in a browser profile kept at
-  `%AppData%\TokenBob\WebView2` and protected by your Windows account. It is never uploaded,
-  and TokenBob never sees your password.
+  `%LocalAppData%\TokenBob\WebView2` and protected by your Windows account. It stays on this PC
+  (not in a roaming profile), is never uploaded, and TokenBob never sees your password.
 - It **does not** read the login of the Claude desktop app, Claude Code or your web browser.
 - The sign-in window can only open Claude's own sign-in pages (and Google's, for "Continue with
   Google"). Anything else is blocked.

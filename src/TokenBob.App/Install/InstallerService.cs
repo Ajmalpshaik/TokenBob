@@ -58,7 +58,7 @@ internal static class InstallerService
     /// </summary>
     public static void RemoveFilesAfterExit(bool removeData)
     {
-        var folders = removeData ? new[] { Paths.Dir, AppPaths.Root } : new[] { Paths.Dir };
+        var folders = removeData ? new[] { Paths.Dir, AppPaths.Root, AppPaths.LocalRoot } : new[] { Paths.Dir };
         var list = string.Join(",", folders.Select(f => "'" + f.Replace("'", "''") + "'"));
         var script =
             $"Wait-Process -Id {Environment.ProcessId} -ErrorAction SilentlyContinue; " +

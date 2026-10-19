@@ -24,6 +24,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - The rope now ends exactly on the ornament's loop (it sat 1.5 px off); the ring and tag get a fine
   edge line, a soft sheen and a metal loop / eyelet.
 
+### Security
+- The hidden helper browser that reads usage is locked to claude.ai: any redirect elsewhere, pop-up
+  or download is cancelled, dev tools and autofill are off, and page addresses are not sent to
+  SmartScreen. The sign-in window also cancels downloads and keeps no autofill.
+- Sign out clears everything the site left in the profile, not just cookies.
+- The sign-in profile moved from roaming `%AppData%` to `%LocalAppData%\TokenBob`, so a domain
+  roaming profile never carries the session off the PC (moved automatically on first start).
+- Releases ship a `TokenBob.exe.sha256` checksum; the release workflow no longer pastes the tag
+  name into a script; the build workflow's token is read-only and fork pull requests get no
+  artifact.
+
 ### Fixed
 - Losing mouse capture mid-drag (lock screen, a prompt) no longer leaves the ornament grabbed or
   frozen with the render loop running.
