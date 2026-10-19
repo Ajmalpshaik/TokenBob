@@ -54,6 +54,36 @@ public partial class App : Application
 
     private bool SignedIn => _poller?.State is { LastGood: not null, Status: not UsageError.NotSignedIn };
 
+    static App()
+    {
+        // Anything that escapes before the log or a window exists still leaves a trace.
+        AppDomain.CurrentDomain.UnhandledException += (_, args) => ReportCrash(args.ExceptionObject as Exception);
+    }
+
+    /// <summary>Writes the crash to %AppData%\TokenBob\logs\crash.txt and shows it, so it can be reported.</summary>
+    private static void ReportCrash(Exception? ex)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(AppPaths.LogsDir);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(AppPaths.LogsDir, "crash.txt"), $"{DateTimeOffset.Now:O}{Environment.NewLine}{ex}");
+        }
+        catch
+        {
+            // Nothing more to do: the crash is already on its way.
+        }
+        try
+        {
+            MessageBox.Show($"TokenBob crashed.{Environment.NewLine}{Environment.NewLine}{ex?.GetType().Name}: {ex?.Message}{Environment.NewLine}{Environment.NewLine}" +
+                            "Details were saved to %AppData%\\TokenBob\\logs\\crash.txt",
+                "TokenBob", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        catch
+        {
+            // The UI itself may be what failed.
+        }
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
