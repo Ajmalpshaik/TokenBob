@@ -144,7 +144,7 @@
                 <ControlTemplate TargetType="RadioButton">
                     <Grid>
                         <Ellipse x:Name="Ring" Stroke="Transparent" StrokeThickness="2" />
-                        <Ellipse Fill="{TemplateBinding Background}" Margin="4" Stroke="#33000000" StrokeThickness="0.8" />
+                        <Ellipse Fill="{TemplateBinding Background}" Margin="4" Stroke="{DynamicResource Ui.Track}" StrokeThickness="1" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
@@ -309,6 +309,18 @@
     </Style>
 
     <!-- A thin, themed vertical scroll bar -->
+    <Style x:Key="Ui.ScrollPage" TargetType="RepeatButton">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="Ui.ScrollThumb" TargetType="Thumb">
         <Setter Property="Template">
             <Setter.Value>
@@ -328,10 +340,10 @@
                     <Grid Background="Transparent">
                         <Track x:Name="PART_Track" IsDirectionReversed="True">
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageUpCommand" Style="{StaticResource Ui.SliderEmpty}" />
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Style="{StaticResource Ui.ScrollPage}" />
                             </Track.DecreaseRepeatButton>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageDownCommand" Style="{StaticResource Ui.SliderEmpty}" />
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Style="{StaticResource Ui.ScrollPage}" />
                             </Track.IncreaseRepeatButton>
                             <Track.Thumb>
                                 <Thumb Style="{StaticResource Ui.ScrollThumb}" />
@@ -409,7 +421,8 @@
         </Setter>
     </Style>
 
-    <Style TargetType="Separator">
+    <!-- Menus look separators up by MenuItem.SeparatorStyleKey, not by type. -->
+    <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Separator">

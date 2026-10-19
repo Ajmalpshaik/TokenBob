@@ -44,6 +44,12 @@ internal abstract class OrnamentBase : FrameworkElement
     public abstract double CenterOffset { get; }
 
     /// <summary>
+    /// Where the rope attaches, measured from the element's left edge. The element is a little
+    /// wider than the drawing (room for the shadow), so this is not simply half its width.
+    /// </summary>
+    public abstract double HangX { get; }
+
+    /// <summary>
     /// The ornament cut into the pieces that fly apart on a limit reset, each placed by its
     /// offset from the ornament's centre, so the blast starts from exactly what was drawn.
     /// </summary>
@@ -74,6 +80,22 @@ internal abstract class OrnamentBase : FrameworkElement
         var width = filledWidth / count;
         for (var i = 0; i < count; i++)
             pieces.Add(new BurstShard(new Vec2(left + width * (i + 0.5), centerY), Math.Max(2, width - 1), height, height / 2, paint));
+    }
+
+    /// <summary>A soft light from the top left that gives the card a little depth.</summary>
+    protected static readonly Brush Sheen = FrozenSheen();
+
+    private static Brush FrozenSheen()
+    {
+        var brush = new RadialGradientBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF), Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF))
+        {
+            GradientOrigin = new Point(0.3, 0.25),
+            Center = new Point(0.4, 0.35),
+            RadiusX = 0.75,
+            RadiusY = 0.75,
+        };
+        brush.Freeze();
+        return brush;
     }
 
     protected FormattedText Text(string text, double size, Brush brush, bool semiBold = false) =>

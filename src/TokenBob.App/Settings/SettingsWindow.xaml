@@ -136,9 +136,8 @@
                 <Border Style="{StaticResource Ui.Panel}">
                     <StackPanel>
                         <DockPanel Margin="0,10,0,0">
-                            <TextBlock DockPanel.Dock="Right" Text="Bouncy" Style="{StaticResource Ui.Value}" />
-                            <TextBlock DockPanel.Dock="Left" Text="Swing" Style="{StaticResource Ui.RowLabel}" />
-                            <TextBlock Text="Calm" Style="{StaticResource Ui.Value}" TextAlignment="Right" Margin="0,0,6,0" />
+                            <TextBlock DockPanel.Dock="Right" Text="calm ← → bouncy" Style="{StaticResource Ui.Value}" />
+                            <TextBlock Text="Swing" Style="{StaticResource Ui.RowLabel}" />
                         </DockPanel>
                         <Slider x:Name="Swing" Style="{StaticResource Ui.Slider}" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10" />
                         <Border Style="{StaticResource Ui.Divider}" Margin="0,6,0,0" />

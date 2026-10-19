@@ -71,10 +71,9 @@ internal sealed class OrnamentPreview : Canvas
         _ornament.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
 
         var hang = sim.OrnamentPosition;
-        var width = _ornament.DesiredSize.Width;
-        SetLeft(_ornament, hang.X - width / 2);
+        SetLeft(_ornament, hang.X - _ornament.HangX);
         SetTop(_ornament, hang.Y);
-        _ornament.RenderTransform = new RotateTransform(sim.OrnamentAngle * 180 / Math.PI, width / 2, 0);
+        _ornament.RenderTransform = new RotateTransform(sim.OrnamentAngle * 180 / Math.PI, _ornament.HangX, 0);
         _ornament.InvalidateVisual();
     }
 

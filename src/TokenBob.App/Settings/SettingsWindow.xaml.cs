@@ -23,6 +23,8 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         Theme.Attach(this);
         _settings = settings;
+        // Never taller than the screen's work area; the content scrolls instead.
+        MaxHeight = Math.Max(480, SystemParameters.WorkArea.Height - 24);
 
         foreach (var minutes in WidgetSettings.RefreshChoices)
         {

@@ -17,6 +17,8 @@ internal sealed class HangingTag : OrnamentBase
 
     public override double CenterOffset => (Top + Height0 / 2) * Scale;
 
+    public override double HangX => Width0 * Scale / 2;
+
     protected override Size MeasureOverride(Size availableSize) =>
         new(Width0 * Scale + ShadowOffset, (Top + Height0) * Scale + ShadowOffset);
 
@@ -29,8 +31,9 @@ internal sealed class HangingTag : OrnamentBase
 
         dc.DrawLine(new Pen(Palette.Loop, 1.4), new Point(w / 2, 0), eyelet);
         dc.DrawRoundedRectangle(Palette.Shadow, null, new Rect(card.X + ShadowOffset, card.Y + ShadowOffset, card.Width, card.Height), 12 * s, 12 * s);
-        dc.DrawRoundedRectangle(Palette.Card, new Pen(Palette.Track, 1), card, 12 * s, 12 * s);
-        dc.DrawEllipse(Palette.Track, new Pen(Palette.Grey, 1), eyelet, 2.6 * s, 2.6 * s);
+        dc.DrawRoundedRectangle(Palette.Card, new Pen(Palette.Edge, 1), card, 12 * s, 12 * s);
+        dc.DrawRoundedRectangle(Sheen, null, card, 12 * s, 12 * s);
+        dc.DrawEllipse(Palette.BeadMetal, new Pen(Palette.BeadRim, 0.8), eyelet, 2.6 * s, 2.6 * s);
 
         if (!HasData)
         {

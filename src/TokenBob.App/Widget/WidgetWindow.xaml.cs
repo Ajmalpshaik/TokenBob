@@ -23,7 +23,7 @@ public partial class WidgetWindow : Window
     /// <summary>How far the rope can be pulled, as a share of its length (pull to refresh needs 125 %).</summary>
     private const double MaxStretch = 1.4;
     /// <summary>Extra window room while the reset pieces fly, so they aren't cut off at the edge.</summary>
-    private const double BlastRoom = 160;
+    private const double BlastRoom = 300;
     private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(400);
     private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(3);
 
@@ -218,7 +218,14 @@ public partial class WidgetWindow : Window
         var reach = MaxStretch * _sim.RestLength;
         if (offset.Length > reach) offset = offset.Normalized() * reach;
         var target = _sim.Anchor + offset;
-        return new Vec2(target.X, Math.Max(0, target.Y));
+
+        // Near a monitor edge the window is narrower than the reach, so keep the ornament inside it too.
+        var size = Ornament.DesiredSize;
+        var left = Ornament.HangX;
+        var right = size.Width - Ornament.HangX;
+        return new Vec2(
+            Math.Clamp(target.X, left, Math.Max(left, Root.Width - right)),
+            Math.Clamp(target.Y, 0, Math.Max(0, Root.Height - size.Height)));
     }
 
     private void UseStyle(OrnamentStyle style)
@@ -269,6 +276,8 @@ public partial class WidgetWindow : Window
         if (_hwnd == IntPtr.Zero) return;
 
         var rope = _placement.RopeLength;
+        // Measure explicitly: before the window is shown, layout hasn't run and DesiredSize would be empty.
+        Ornament.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var reach = MaxStretch * rope + Ornament.DesiredSize.Height + _extraRoom;
         var rect = Core.Screens.Placement.WindowRect(_placement, 2 * reach, reach);
         SetWindowPos(_hwnd, HWND_TOPMOST, (int)Math.Round(rect.Left), (int)Math.Round(rect.Top),
@@ -355,11 +364,11 @@ public partial class WidgetWindow : Window
     {
         Rope.Update(_sim.Points);
 
+        // The rope ends exactly on the loop: the element's left edge sits HangX left of the rope end.
         var hang = _sim.OrnamentPosition;
-        var width = Ornament.DesiredSize.Width > 0 ? Ornament.DesiredSize.Width : Host.ActualWidth;
-        Canvas.SetLeft(Host, hang.X - width / 2);
+        Canvas.SetLeft(Host, hang.X - Ornament.HangX);
         Canvas.SetTop(Host, hang.Y);
-        _ornamentScale.CenterX = _ornamentRotation.CenterX = width / 2;
+        _ornamentScale.CenterX = _ornamentRotation.CenterX = Ornament.HangX;
         _ornamentScale.CenterY = Ornament.CenterOffset;
         _ornamentRotation.Angle = _sim.OrnamentAngle * 180 / Math.PI;
     }

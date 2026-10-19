@@ -265,6 +265,35 @@ public class UsagePollerTests
         Eventually(() => provider.Calls == 2);
     }
 
+    private sealed class BlockingProvider : IUsageProvider
+    {
+        private readonly TaskCompletionSource _started = new();
+
+        public Task Started => _started.Task;
+
+        public async Task<UsageResult> FetchAsync(CancellationToken ct)
+        {
+            _started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);   // only ends when the poller is disposed
+            return UsageResult.Ok(Snapshot(10));
+        }
+    }
+
+    [Fact]
+    public async Task Disposing_during_a_fetch_stops_quietly()
+    {
+        var provider = new BlockingProvider();
+        var log = new TestDoubles.RecordingLog();
+        var poller = new UsagePoller(provider, _time, Five, log);
+        poller.Start();
+        await provider.Started;
+
+        poller.Dispose();
+        await Task.Delay(100);
+
+        Assert.DoesNotContain(log.Messages, m => m.StartsWith("ERROR", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Changing_interval_applies_to_next_wait()
     {

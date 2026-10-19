@@ -96,7 +96,7 @@ public partial class App : Application
         }
 
         _demo = e.Args is ["--demo-alerts"];
-        Theme.Apply(WindowsTheme.IsDark);
+        Theme.Apply(IsDarkFor(new JsonStore<WidgetSettings>(AppPaths.SettingsFile, NullLog.Instance).Load().Normalized().Theme));
 
         var paths = InstallerService.Paths;
         switch (Installer.Decide(e.Args, Environment.ProcessPath ?? "", paths, InstallerService.IsInstalled, InstallerService.IsSingleFileBuild))
@@ -351,12 +351,7 @@ public partial class App : Application
     /// <summary>Light or dark for the widget and every window: the user's choice, or what Windows uses.</summary>
     private void ApplyTheme()
     {
-        var dark = _settings.Theme switch
-        {
-            AppTheme.Dark => true,
-            AppTheme.Light => false,
-            _ => WindowsTheme.IsDark,
-        };
+        var dark = IsDarkFor(_settings.Theme);
         if (_appliedDark == dark) return;
         _appliedDark = dark;
         Palette.UseDark(dark);
@@ -364,6 +359,13 @@ public partial class App : Application
         _widget?.Repaint();
         Render();
     }
+
+    private static bool IsDarkFor(AppTheme theme) => theme switch
+    {
+        AppTheme.Dark => true,
+        AppTheme.Light => false,
+        _ => WindowsTheme.IsDark,
+    };
 
     /// <summary>Hangs the widget back at the default spot on the main monitor (it may have been lost off-screen).</summary>
     private void ResetPlacement()
@@ -401,6 +403,7 @@ public partial class App : Application
     {
         ApplyTheme();
         _widget?.ApplySettings();
+        Render();   // e.g. the number shown in the ring
         if (_poller is not null) _poller.Interval = TimeSpan.FromMinutes(_settings.RefreshMinutes);
         if (_settings.StartWithWindows != StartupRegistration.IsEnabled()) TrySetStartup(_settings.StartWithWindows);
         if (_fullscreen is not null) _fullscreen.Enabled = _settings.AutoHideFullscreen;

@@ -21,6 +21,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   at an invisible edge; dragging feels like a rope pulled taut instead of hitting a wall.
 - Lower memory: the GC is set to conserve memory, the working set is trimmed a few seconds after
   the widget stops moving, and the render loop no longer creates garbage every frame.
+- The rope now ends exactly on the ornament's loop (it sat 1.5 px off); the ring and tag get a fine
+  edge line, a soft sheen and a metal loop / eyelet.
 
 ### Fixed
 - Losing mouse capture mid-drag (lock screen, a prompt) no longer leaves the ornament grabbed or

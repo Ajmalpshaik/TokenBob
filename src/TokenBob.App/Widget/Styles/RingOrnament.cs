@@ -16,6 +16,8 @@ internal sealed class RingOrnament : OrnamentBase
 
     public override double CenterOffset => LoopHeight + Diameter / 2 * Scale;
 
+    public override double HangX => Diameter * Scale / 2;
+
     protected override Size MeasureOverride(Size availableSize) =>
         new(Diameter * Scale + ShadowOffset, LoopHeight + Diameter * Scale + ShadowOffset);
 
@@ -26,9 +28,10 @@ internal sealed class RingOrnament : OrnamentBase
         var center = new Point(cx, CenterOffset);
         var radius = Diameter / 2 * s;
 
-        dc.DrawEllipse(null, new Pen(Palette.Loop, 1.8), new Point(cx, LoopRadius + 0.5), LoopRadius, LoopRadius);
+        dc.DrawEllipse(null, new Pen(Palette.BeadMetal, 1.8), new Point(cx, LoopRadius + 0.5), LoopRadius, LoopRadius);
         dc.DrawEllipse(Palette.Shadow, null, new Point(center.X + ShadowOffset, center.Y + ShadowOffset), radius, radius);
-        dc.DrawEllipse(Palette.Card, null, center, radius, radius);
+        dc.DrawEllipse(Palette.Card, new Pen(Palette.Edge, 1), center, radius, radius);
+        dc.DrawEllipse(Sheen, null, center, radius, radius);
 
         DrawRing(dc, center, 33 * s, 6 * s, WeeklyPercent, Palette.ForLevel(WeeklyLevel, IsGrey));
         DrawRing(dc, center, 24 * s, 6 * s, FiveHourPercent, Palette.ForLevel(FiveHourLevel, IsGrey));
